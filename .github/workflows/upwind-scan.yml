@@ -1,0 +1,134 @@
+name: Upwind Manual Image Scan
+
+# Manual SCA scan via Upwind Shift Left actions.
+# Requires: UPWIND_CLIENT_ID, UPWIND_CLIENT_SECRET, AZURE_SCAN_CLIENT_ID (or AZURE_CLIENT_ID),
+#           AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, ACR_NAME, ACR_LOGIN_SERVER
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service to scan
+        type: choice
+        options:
+          - all
+          - frontend
+          - chat-rag
+          - board-generator
+        default: all
+      image_tag:
+        description: Image tag (ACR mode) or local tag suffix (build mode)
+        type: string
+        default: latest
+      scan_mode:
+        description: Pull from ACR or build from Dockerfile on the runner
+        type: choice
+        options:
+          - acr
+          - build
+        default: acr
+
+env:
+  NAME_PREFIX: jays-surf-shop-demo
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  scan:
+    name: Scan ${{ matrix.service }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(
+          inputs.service == 'all'
+          && '["frontend","chat-rag","board-generator"]'
+          || format('["{0}"]', inputs.service)
+          ) }}
+    steps:
+      - name: Check Upwind credentials
+        env:
+          UPWIND_CLIENT_ID: ${{ secrets.UPWIND_CLIENT_ID }}
+          UPWIND_CLIENT_SECRET: ${{ secrets.UPWIND_CLIENT_SECRET }}
+        run: |
+          if [ -z "$UPWIND_CLIENT_ID" ] || [ -z "$UPWIND_CLIENT_SECRET" ]; then
+            echo "::error::Add UPWIND_CLIENT_ID and UPWIND_CLIENT_SECRET to this repo's Actions secrets."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Resolve build context
+        id: ctx
+        run: |
+          case "${{ matrix.service }}" in
+            frontend)         echo "context=frontend" ;;
+            chat-rag)         echo "context=services/chat-rag" ;;
+            board-generator)  echo "context=services/board-generator" ;;
+          esac >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Azure scan client ID
+        if: inputs.scan_mode == 'acr'
+        id: azure_scan
+        env:
+          SCAN_ID: ${{ secrets.AZURE_SCAN_CLIENT_ID }}
+          DEPLOY_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          ID="${SCAN_ID:-$DEPLOY_ID}"
+          if [ -z "$ID" ]; then
+            echo "::error::Set AZURE_SCAN_CLIENT_ID or AZURE_CLIENT_ID"
+            exit 1
+          fi
+          echo "client_id=${ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Azure login (OIDC)
+        if: inputs.scan_mode == 'acr'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ steps.azure_scan.outputs.client_id }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        if: inputs.scan_mode == 'acr'
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Set image reference
+        id: image
+        run: |
+          if [ "${{ inputs.scan_mode }}" = "acr" ]; then
+            IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/${{ env.NAME_PREFIX }}/${{ matrix.service }}:${{ inputs.image_tag }}"
+          else
+            IMAGE="${{ env.NAME_PREFIX }}-${{ matrix.service }}:${{ inputs.image_tag }}"
+          fi
+          echo "ref=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "Scan target: ${IMAGE}"
+
+      - name: Pull image from ACR
+        if: inputs.scan_mode == 'acr'
+        run: docker pull "${{ steps.image.outputs.ref }}"
+
+      - name: Build image locally
+        if: inputs.scan_mode == 'build'
+        run: docker build -t "${{ steps.image.outputs.ref }}" "./${{ steps.ctx.outputs.context }}"
+
+      - name: Tag image for local-only scan
+        id: scan-image
+        run: |
+          LOCAL="${{ env.NAME_PREFIX }}-${{ matrix.service }}:${{ inputs.image_tag }}"
+          docker tag "${{ steps.image.outputs.ref }}" "$LOCAL"
+          echo "ref=${LOCAL}" >> "$GITHUB_OUTPUT"
+          echo "Local scan tag: ${LOCAL}"
+
+      - name: Shift Left Image Scan
+        uses: upwindsecurity/shiftleft-create-image-scan-event-action@main
+        with:
+          upwind_client_id: ${{ secrets.UPWIND_CLIENT_ID }}
+          upwind_client_secret: ${{ secrets.UPWIND_CLIENT_SECRET }}
+          docker_image: ${{ steps.scan-image.outputs.ref }}
+          pull_image: false
+          use_sudo: false
+          commit_sha: ${{ github.sha }}
+          additional_registries: ${{ inputs.scan_mode == 'acr' && secrets.ACR_LOGIN_SERVER || '' }}
