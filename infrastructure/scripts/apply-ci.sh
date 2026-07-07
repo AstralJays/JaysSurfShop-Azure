@@ -14,13 +14,12 @@ fi
 cd "$TERRAFORM_DIR"
 terraform init
 
-terraform apply \
+terraform apply -auto-approve \
   -target=module.workshop.azurerm_container_registry.main \
   -target=module.workshop.azurerm_user_assigned_identity.github_deploy \
   -target=module.workshop.azurerm_user_assigned_identity.github_scan \
   -target=module.workshop.azurerm_federated_identity_credential.github_deploy \
-  -target=module.workshop.azurerm_federated_identity_credential.github_scan_deploy \
-  -target=module.workshop.azurerm_federated_identity_credential.github_scan_external \
+  -target=module.workshop.azurerm_federated_identity_credential.github_scan \
   -target=module.workshop.azurerm_role_assignment.github_deploy_acr_push \
   -target=module.workshop.azurerm_role_assignment.github_scan_acr_pull
 
