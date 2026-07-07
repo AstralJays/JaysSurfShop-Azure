@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  Azure twin of <a href="https://github.com/AstralJays/JaysSurfShop">JaysSurfShop</a> — the same intentionally vulnerable surf shop for security workshops, deployable on <strong>AKS</strong> or <strong>Azure Container Apps</strong>.
+  Azure twin of <a href="https://github.com/AstralJays/JaysSurfShop">JaysSurfShop</a> — the same intentionally vulnerable surf shop for security workshops — CSPM, container runtime, AI SPM, and XDR demos. Deploy on <strong>AKS</strong> or <strong>Azure Container Apps</strong>.
 </p>
 
 <p align="center">
@@ -19,43 +19,45 @@
 
 ```
 Internet → frontend (AKS LoadBalancer or Container Apps ingress)
-              ├── chat-rag (private)
-              └── board-generator (private)
+              ├── chat-rag (RAG + GPT-4o-mini, CVE-2023-50447)
+              └── board-generator (DALL·E / gpt-image)
 
 Internet → Azure Function → order-webhook (EICAR + PyYAML CVE-2020-14343)
               ↑ checkout from cart
 ```
 
-| Service | Stack | Port |
-|---------|-------|------|
-| **frontend** | Next.js 15 | 3000 |
-| **chat-rag** | FastAPI, ChromaDB, OpenAI | 8001 |
+| Service | Stack | Port / entry |
+|---------|-------|--------------|
+| **frontend** | Next.js 15, React, Tailwind | 3000 |
+| **chat-rag** | FastAPI, ChromaDB, OpenAI, exploit lab | 8001 |
 | **board-generator** | FastAPI, image generation | 8002 |
-| **order-webhook** | Python Azure Function | HTTP routes |
+| **order-webhook** | Python Azure Function (HTTP) | `/checkout`, `/demo/*` |
 
 ## Quick start (local)
 
-Same as the AWS repo — app code is identical:
+Same app as the AWS repo — identical `frontend/`, `services/`, and `docker-compose.yml`:
 
 ```bash
 cp .env.example .env
 # Set OPENAI_API_KEY
+
 docker compose up --build
 ```
 
 Open [http://localhost:3000](http://localhost:3000) · security dashboard at [/security](http://localhost:3000/security)
 
+Vulnerabilities are on by default: pillow CVE, exploit endpoints, path traversal, chat-rag on port 8001. On Azure: public blob export, overprivileged managed identities, open SSH NSG rule, and anonymous Function routes (EICAR + PyYAML CVE).
+
 ## Deploy to Azure
 
-Choose **AKS** or **Container Apps**. Both share VNet, ACR, Key Vault, Storage, Function App, and GitHub OIDC via `infrastructure/modules/workshop/`.
+Choose **Container Apps** or **AKS** — both share VNet, ACR, Key Vault, Storage, Azure Function, and GitHub OIDC via `infrastructure/modules/workshop/`.
 
 ```bash
 # 1. CI bootstrap (ACR + GitHub federated credentials)
 ./infrastructure/scripts/apply-ci.sh container-apps   # or: aks
 
 # 2. Add GitHub secrets (printed by apply-ci.sh):
-#    AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
-#    ACR_NAME, ACR_LOGIN_SERVER
+#    AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, ACR_NAME, ACR_LOGIN_SERVER
 
 # 3. Run "Build and Push Images" in Actions (or build-push.sh locally)
 
@@ -68,7 +70,17 @@ cp infrastructure/container-apps/terraform/terraform.tfvars.example \
 
 See [infrastructure/aks/README.md](infrastructure/aks/README.md) and [infrastructure/container-apps/README.md](infrastructure/container-apps/README.md).
 
+The workflow [`.github/workflows/build-push.yml`](.github/workflows/build-push.yml) builds all three images and pushes to ACR on push to `main` (or manual dispatch).
+
 Workshop runbook: **[docs/WORKSHOP.md](docs/WORKSHOP.md)**
+
+## Multi-cloud repos
+
+| Cloud | Repo | Compute options |
+|-------|------|-----------------|
+| AWS | [JaysSurfShop](https://github.com/AstralJays/JaysSurfShop) | ECS Fargate, EKS |
+| Azure | **JaysSurfShop-Azure** | Container Apps, AKS |
+| GCP | [JaysSurfShop-GCP](https://github.com/AstralJays/JaysSurfShop-GCP) | Cloud Run, GKE |
 
 ## Project structure
 
@@ -76,11 +88,11 @@ Workshop runbook: **[docs/WORKSHOP.md](docs/WORKSHOP.md)**
 JaysSurfShop-Azure/
 ├── docs/WORKSHOP.md
 ├── infrastructure/
-│   ├── modules/workshop/       # VNet, ACR, Key Vault, Storage, Function, GitHub OIDC
-│   ├── aks/terraform/          # AKS + Kubernetes workloads
+│   ├── modules/workshop/        # VNet, ACR, Key Vault, Storage, Function, GitHub OIDC
+│   ├── aks/terraform/           # AKS + Kubernetes workloads
 │   ├── container-apps/terraform/
-│   ├── function/order-webhook/
-│   └── scripts/
+│   ├── function/order-webhook/  # checkout Function (EICAR + PyYAML CVE)
+│   └── scripts/                 # apply-ci, deploy-aks/container-apps, build-push
 ├── frontend/
 ├── services/
 └── docker-compose.yml
