@@ -1,0 +1,7 @@
+location     = "eastus"
+project_name = "jays-surf-shop"
+environment  = "demo"
+
+# openai_api_key = "sk-..."
+
+# github_deploy_repo = "AstralJays/JaysSurfShop-Azure"

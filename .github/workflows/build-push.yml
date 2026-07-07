@@ -1,0 +1,54 @@
+name: Build and Push Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  AZURE_LOCATION: eastus
+  PROJECT_NAME: jays-surf-shop
+  ENVIRONMENT: demo
+  NAME_PREFIX: jays-surf-shop-demo
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-push:
+    name: Push ${{ matrix.service }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: frontend
+            context: frontend
+          - service: chat-rag
+            context: services/chat-rag
+          - service: board-generator
+            context: services/board-generator
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and push
+        env:
+          REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+        run: |
+          IMAGE="${REGISTRY}/${{ env.NAME_PREFIX }}/${{ matrix.service }}:${{ github.sha }}"
+          docker build -t "$IMAGE" \
+            -t "${REGISTRY}/${{ env.NAME_PREFIX }}/${{ matrix.service }}:latest" \
+            "./${{ matrix.context }}"
+          docker push "$IMAGE"
+          docker push "${REGISTRY}/${{ env.NAME_PREFIX }}/${{ matrix.service }}:latest"

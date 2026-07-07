@@ -1,0 +1,44 @@
+# Terraform
+infrastructure/aks/terraform/.terraform/
+infrastructure/aks/terraform/*.tfstate
+infrastructure/aks/terraform/*.tfstate.*
+infrastructure/aks/terraform/.terraform.lock.hcl
+infrastructure/aks/terraform/tfplan
+infrastructure/aks/terraform/terraform.tfvars
+infrastructure/container-apps/terraform/.terraform/
+infrastructure/container-apps/terraform/*.tfstate
+infrastructure/container-apps/terraform/*.tfstate.*
+infrastructure/container-apps/terraform/.terraform.lock.hcl
+infrastructure/container-apps/terraform/tfplan
+infrastructure/container-apps/terraform/terraform.tfvars
+
+# Function build artifacts
+infrastructure/function/order-webhook/package/
+infrastructure/function/order-webhook/build.zip
+
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Generated
+services/chat-rag/data/chroma/
+services/board-generator/generated/
+*.log
