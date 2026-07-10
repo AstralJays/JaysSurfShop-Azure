@@ -3,13 +3,19 @@ import { proxyChat } from "@/lib/demoLab";
 
 const PROXY_ROUTES: Record<string, string> = {
   pillow: "/demo/exploit/pillow",
-  "iam-abuse": "/demo/exploit/iam-abuse",
-  "metadata-creds": "/demo/exploit/metadata-creds",
+  "iam-abuse": "/demo/exploit/managed-identity-abuse",
+  "managed-identity-token": "/demo/exploit/managed-identity-token",
+  "managed-identity-abuse": "/demo/exploit/managed-identity-abuse",
+  "metadata-creds": "/demo/exploit/managed-identity-token",
+  "sp-credential-theft": "/demo/exploit/sp-credential-theft",
+  "role-assignment-abuse": "/demo/exploit/role-assignment-abuse",
+  "keyvault-secrets": "/demo/exploit/keyvault-secrets",
+  "mi-keyvault-chain": "/demo/exploit/mi-keyvault-chain",
+  "blob-exfil": "/demo/exploit/blob-exfil",
   "shell-pipe": "/demo/exploit/shell-pipe",
   "cryptominer-sim": "/demo/exploit/cryptominer-sim",
   "package-manager": "/demo/exploit/package-manager",
   "eicar-file": "/demo/exploit/eicar-file",
-  "s3-exfil": "/demo/exploit/s3-exfil",
 };
 
 export async function POST(

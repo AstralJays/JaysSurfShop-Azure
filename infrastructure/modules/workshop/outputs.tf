@@ -108,3 +108,32 @@ output "log_analytics_workspace_id" {
 output "github_actions_subscription_id" {
   value = data.azurerm_client_config.current.subscription_id
 }
+
+output "tenant_id" {
+  value = data.azurerm_client_config.current.tenant_id
+}
+
+output "workshop_dev_sp_client_id" {
+  value = azuread_application.workshop_dev.client_id
+}
+
+output "workshop_dev_sp_object_id" {
+  value = azuread_service_principal.workshop_dev.object_id
+}
+
+output "leaked_sp_credentials_json" {
+  value     = local.leaked_sp_credentials
+  sensitive = true
+}
+
+output "leaked_sp_blob_url" {
+  value = "https://${azurerm_storage_account.demo_public.name}.blob.core.windows.net/${azurerm_storage_container.demo_public.name}/${azurerm_storage_blob.leaked_sp_credentials.name}"
+}
+
+output "workshop_key_vault_secret_names" {
+  value = [
+    azurerm_key_vault_secret.workshop_db_password.name,
+    azurerm_key_vault_secret.workshop_api_key.name,
+    azurerm_key_vault_secret.workshop_storage_key.name,
+  ]
+}

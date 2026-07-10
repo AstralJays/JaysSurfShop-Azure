@@ -15,10 +15,20 @@ locals {
       { name = "SERVICE_NAME", value = "chat-rag" },
       { name = "ENVIRONMENT", value = var.environment },
       { name = "AZURE_REGION", value = var.location },
+      { name = "AZURE_SUBSCRIPTION_ID", value = module.workshop.subscription_id },
+      { name = "AZURE_TENANT_ID", value = module.workshop.tenant_id },
+      { name = "AZURE_CLIENT_ID", value = azurerm_user_assigned_identity.app.client_id },
+      { name = "AZURE_KEY_VAULT_URI", value = module.workshop.key_vault_uri },
       { name = "DEPLOYMENT_ID", value = local.name_prefix },
       { name = "LOG_FORMAT", value = "json" },
       { name = "AI_MODEL_CHAT", value = "gpt-4o-mini" },
       { name = "AI_MODEL_EMBED", value = "text-embedding-3-small" },
+      { name = "LEAKED_SP_PATH", value = "/var/run/demo/leaked-sp.json" },
+      { name = "WORKSHOP_DEV_SP_CLIENT_ID", value = module.workshop.workshop_dev_sp_client_id },
+      { name = "WORKSHOP_DEV_SP_OBJECT_ID", value = module.workshop.workshop_dev_sp_object_id },
+      { name = "WORKSHOP_RESOURCE_GROUP", value = module.workshop.resource_group_name },
+      { name = "WORKSHOP_STORAGE_ACCOUNT", value = module.workshop.board_images_storage_account },
+      { name = "WORKSHOP_PUBLIC_BLOB_URL", value = module.workshop.demo_public_blob_url },
     ]
     board-generator = [
       { name = "SERVICE_NAME", value = "board-generator" },
@@ -101,6 +111,16 @@ resource "kubernetes_deployment" "services" {
       spec {
         service_account_name = kubernetes_service_account.app.metadata[0].name
 
+        dynamic "volume" {
+          for_each = each.key == "chat-rag" ? [1] : []
+          content {
+            name = "leaked-sp"
+            secret {
+              secret_name = kubernetes_secret.leaked_sp.metadata[0].name
+            }
+          }
+        }
+
         container {
           name  = each.key
           image = "${module.workshop.acr_repository_urls[each.key]}:${var.image_tag}"
@@ -130,6 +150,15 @@ resource "kubernetes_deployment" "services" {
                 name = kubernetes_secret.openai.metadata[0].name
                 key  = "OPENAI_API_KEY"
               }
+            }
+          }
+
+          dynamic "volume_mount" {
+            for_each = each.key == "chat-rag" ? [1] : []
+            content {
+              name       = "leaked-sp"
+              mount_path = "/var/run/demo"
+              read_only  = true
             }
           }
 

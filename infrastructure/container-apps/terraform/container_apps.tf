@@ -59,10 +59,20 @@ locals {
       { name = "SERVICE_NAME", value = "chat-rag" },
       { name = "ENVIRONMENT", value = var.environment },
       { name = "AZURE_REGION", value = var.location },
+      { name = "AZURE_SUBSCRIPTION_ID", value = module.workshop.subscription_id },
+      { name = "AZURE_TENANT_ID", value = module.workshop.tenant_id },
+      { name = "AZURE_CLIENT_ID", value = azurerm_user_assigned_identity.apps.client_id },
+      { name = "AZURE_KEY_VAULT_URI", value = module.workshop.key_vault_uri },
       { name = "DEPLOYMENT_ID", value = local.name_prefix },
       { name = "LOG_FORMAT", value = "json" },
       { name = "AI_MODEL_CHAT", value = "gpt-4o-mini" },
       { name = "AI_MODEL_EMBED", value = "text-embedding-3-small" },
+      { name = "LEAKED_SP_PATH", value = "/var/run/demo/leaked-sp.json" },
+      { name = "WORKSHOP_DEV_SP_CLIENT_ID", value = module.workshop.workshop_dev_sp_client_id },
+      { name = "WORKSHOP_DEV_SP_OBJECT_ID", value = module.workshop.workshop_dev_sp_object_id },
+      { name = "WORKSHOP_RESOURCE_GROUP", value = module.workshop.resource_group_name },
+      { name = "WORKSHOP_STORAGE_ACCOUNT", value = module.workshop.board_images_storage_account },
+      { name = "WORKSHOP_PUBLIC_BLOB_URL", value = module.workshop.demo_public_blob_url },
     ]
     board-generator = [
       { name = "SERVICE_NAME", value = "board-generator" },
@@ -100,6 +110,11 @@ resource "azurerm_container_app" "services" {
     value = var.openai_api_key
   }
 
+  secret {
+    name  = "leaked-sp-json"
+    value = module.workshop.leaked_sp_credentials_json
+  }
+
   template {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
@@ -111,6 +126,14 @@ resource "azurerm_container_app" "services" {
       cpu     = each.value.cpu
       memory  = each.value.memory
 
+      dynamic "volume_mounts" {
+        for_each = each.key == "chat-rag" ? [1] : []
+        content {
+          name = "leaked-sp"
+          path = "/var/run/demo"
+        }
+      }
+
       env {
         name        = "OPENAI_API_KEY"
         secret_name = "openai-api-key"
@@ -121,6 +144,20 @@ resource "azurerm_container_app" "services" {
         content {
           name  = env.value.name
           value = env.value.value
+        }
+      }
+    }
+
+    dynamic "volume" {
+      for_each = each.key == "chat-rag" ? [1] : []
+      content {
+        name          = "leaked-sp"
+        storage_type  = "Secret"
+        mount_options = "ReadOnly"
+
+        secrets {
+          secret_name = "leaked-sp-json"
+          path        = "leaked-sp.json"
         }
       }
     }

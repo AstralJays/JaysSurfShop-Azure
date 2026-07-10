@@ -11,8 +11,8 @@ export interface SecurityPoc {
   outcome: string;
   upwindPolicies: string[];
   requiresPillow?: boolean;
-  awsOnly?: boolean;
-  lambdaOnly?: boolean;
+  azureOnly?: boolean;
+  functionOnly?: boolean;
 }
 
 export const POC_CATEGORIES: Array<{
@@ -23,12 +23,14 @@ export const POC_CATEGORIES: Array<{
   {
     id: "cloud-xdr",
     label: "Cloud XDR",
-    blurb: "Identity abuse, CloudTrail, and data exfiltration via AWS APIs after compromise.",
+    blurb:
+      "Realistic Azure identity abuse — managed identity tokens, role assignments, SP secrets, and Key Vault (Activity Log).",
   },
   {
     id: "container-runtime",
     label: "Container Runtime",
-    blurb: "Process, syscall, file, and network signals from ECS/Fargate workloads.",
+    blurb:
+      "Shell access → Azure IMDS / managed identity token theft from overprivileged workloads (T1552 / T1078).",
   },
   {
     id: "malware",
@@ -43,34 +45,116 @@ export const POC_CATEGORIES: Array<{
 ];
 
 export const SECURITY_POCS: SecurityPoc[] = [
-  // Cloud XDR
+  // Cloud XDR — identity-first attack paths
   {
-    id: "iam-role-abuse",
+    id: "managed-identity-token",
     category: "cloud-xdr",
-    cve: "CWE-269",
-    title: "IAM role abuse",
+    cve: "T1552.005",
+    title: "Managed identity token theft",
+    method: "POST",
+    apiPath: "/api/security/demo/runtime/managed-identity-token",
+    azureOnly: true,
+    upwindPolicies: ["Azure credentials access", "Metadata server access"],
+    description:
+      "After compromise, curls Azure IMDS (169.254.169.254) or the platform identity endpoint for an OAuth token — the Azure equivalent of AWS/GCP metadata abuse.",
+    outcome:
+      "Redacted access_token + expires_in — use before post-compromise identity abuse demos.",
+  },
+  {
+    id: "managed-identity-abuse",
+    category: "cloud-xdr",
+    cve: "T1078",
+    title: "Post-compromise data access",
     method: "POST",
     apiPath: "/api/security/demo/iam-abuse",
-    awsOnly: true,
-    upwindPolicies: ["CloudTrail / identity", "AWS credentials access"],
+    azureOnly: true,
+    upwindPolicies: ["Activity Log Key Vault", "Activity Log Storage", "ARM operations"],
     description:
-      "Abuses the overprivileged ECS task role from chat-rag — ListBuckets, ListRoles, ListSecrets.",
-    outcome: "Real CloudTrail events for Cloud XDR correlation after container compromise.",
+      "After token theft, abuses overprivileged workload managed identity — Key Vault, Blob Storage, and ARM enumeration.",
+    outcome: "Azure Activity Log entries for data-plane enumeration from the workload identity.",
   },
   {
-    id: "s3-exfil",
+    id: "sp-credential-theft",
+    category: "cloud-xdr",
+    cve: "T1552",
+    title: "Service principal credential theft",
+    method: "POST",
+    apiPath: "/api/security/demo/runtime/sp-credential-theft",
+    azureOnly: true,
+    upwindPolicies: ["Azure credentials access", "Dormant secret usage"],
+    description:
+      "Uses a long-lived app registration client secret leaked in the container / CI artifact (classic misconfiguration).",
+    outcome:
+      "Authenticates as dev SP via az login --service-principal — persistent until secret rotated.",
+  },
+  {
+    id: "role-assignment-abuse",
+    category: "cloud-xdr",
+    cve: "T1098",
+    title: "Role assignment abuse (UAA)",
+    method: "POST",
+    apiPath: "/api/security/demo/runtime/role-assignment-abuse",
+    azureOnly: true,
+    upwindPolicies: ["Activity Log identity", "Privilege escalation"],
+    description:
+      "Compromised identity with User Access Administrator uses Microsoft.Authorization/roleAssignments/write to escalate.",
+    outcome:
+      "Lists role assignments and demonstrates write — Owner / Contributor takeover path.",
+  },
+  {
+    id: "keyvault-secrets",
+    category: "cloud-xdr",
+    cve: "T1552",
+    title: "Key Vault secrets theft",
+    method: "POST",
+    apiPath: "/api/security/demo/runtime/keyvault-secrets",
+    azureOnly: true,
+    upwindPolicies: ["Activity Log Key Vault", "Azure credentials access"],
+    description:
+      "Key Vault Secrets User / Officer retrieves DB passwords, API keys, and storage keys.",
+    outcome: "Redacted secret previews — immediate pivot into databases and storage.",
+  },
+  {
+    id: "mi-keyvault-chain",
+    category: "cloud-xdr",
+    cve: "T1078",
+    title: "MI → Key Vault → Storage chain",
+    method: "POST",
+    apiPath: "/api/security/demo/runtime/mi-keyvault-chain",
+    azureOnly: true,
+    upwindPolicies: ["Identity graph / attack path", "Key Vault + Storage correlation"],
+    description:
+      "Managed identity token → Key Vault storage key → Blob Storage — lateral movement without CVEs.",
+    outcome: "Three-step kill chain combining two common Azure misconfigurations.",
+  },
+  {
+    id: "blob-exfil",
     category: "cloud-xdr",
     cve: "CWE-200",
-    title: "S3 data exfiltration",
+    title: "Blob Storage data exfiltration",
     method: "POST",
-    apiPath: "/api/security/demo/runtime/s3-exfil",
-    awsOnly: true,
-    upwindPolicies: ["CloudTrail S3 APIs", "IAM role abuse chain"],
+    apiPath: "/api/security/demo/runtime/blob-exfil",
+    azureOnly: true,
+    upwindPolicies: ["Activity Log Storage", "Managed identity abuse chain"],
     description:
-      "Enumerates S3 buckets and probes objects using the task role — post-compromise data theft.",
-    outcome: "Lists workshop buckets and samples a public demo object via IAM.",
+      "Enumerates Blob containers and probes objects using stolen managed identity credentials.",
+    outcome: "Lists workshop containers and samples the public demo export.",
   },
   // Container Runtime
+  {
+    id: "metadata-creds",
+    category: "container-runtime",
+    cve: "T1552.005",
+    title: "IMDS token theft (runtime)",
+    method: "POST",
+    apiPath: "/api/security/demo/runtime/metadata-creds",
+    azureOnly: true,
+    upwindPolicies: ["Azure credentials access", "Metadata server access"],
+    description:
+      "Same as Cloud XDR token theft — run after Pillow RCE to show container → IMDS → token chain.",
+    outcome:
+      "Redacted token from 169.254.169.254 — bridge from container runtime to Cloud XDR tab.",
+  },
   {
     id: "pillow-rce",
     category: "container-runtime",
@@ -85,7 +169,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
       "Out Of Baseline",
     ],
     description: "Exploits Pillow 10.0.1 ImageMath.eval for container-local code execution.",
-    outcome: "Runs `sh -c id > /tmp/jss-cve-2023-50447-id.txt` — your Upwind detection.",
+    outcome: "Runs `id` via code execution — initial access for the identity kill chain.",
   },
   {
     id: "shell-pipe",
@@ -132,19 +216,6 @@ export const SECURITY_POCS: SecurityPoc[] = [
     description: "Legacy download handler reads `../confidential/api-credentials.txt`.",
     outcome: "Returns synthetic API keys — file access outside intended directory.",
   },
-  {
-    id: "metadata-creds",
-    category: "container-runtime",
-    cve: "CWE-918",
-    title: "Fargate metadata / AWS creds",
-    method: "POST",
-    apiPath: "/api/security/demo/runtime/metadata-creds",
-    awsOnly: true,
-    upwindPolicies: ["AWS credentials access", "Metadata DNS rebind"],
-    description:
-      "Curls 169.254.170.2 for ECS task metadata and temporary IAM credentials (Fargate IMDS analogue).",
-    outcome: "Redacted creds + task ARN — run after Pillow, before IAM abuse in Cloud XDR tab.",
-  },
   // Malware
   {
     id: "eicar-file",
@@ -155,30 +226,30 @@ export const SECURITY_POCS: SecurityPoc[] = [
     apiPath: "/api/security/demo/runtime/eicar-file",
     upwindPolicies: ["Malware protection"],
     description: "Writes the EICAR test string to `/tmp/eicar.com` inside chat-rag.",
-    outcome: "Container malware protection policy signal (distinct from Lambda EICAR).",
+    outcome: "Container malware protection policy signal (distinct from Function EICAR).",
   },
   {
     id: "eicar",
     category: "malware",
     cve: "EICAR",
-    title: "EICAR response (Lambda)",
+    title: "EICAR response (Function)",
     method: "GET",
     apiPath: "/api/security/demo/eicar",
-    lambdaOnly: true,
+    functionOnly: true,
     upwindPolicies: ["Malware protection (Cloud Scanner)"],
-    description: "Order webhook Lambda returns embedded EICAR from deployment package.",
-    outcome: "Serverless malware / artifact scanning demo via API Gateway.",
+    description: "Order webhook Azure Function returns embedded EICAR from deployment package.",
+    outcome: "Serverless malware / artifact scanning demo via public Function URL.",
   },
   {
     id: "yaml-deser",
     category: "malware",
     cve: "CVE-2020-14343",
-    title: "PyYAML deserialization (Lambda)",
+    title: "PyYAML deserialization (Function)",
     method: "POST",
     apiPath: "/api/security/demo/yaml",
-    lambdaOnly: true,
+    functionOnly: true,
     upwindPolicies: ["Serverless SCA + runtime"],
-    description: "Unsafe yaml.load() on attacker input in order-webhook Lambda.",
+    description: "Unsafe yaml.load() on attacker input in order-webhook Function.",
     outcome: "Proves serverless CVE exploitable at runtime.",
   },
   // AI
@@ -192,7 +263,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
     upwindPolicies: ["Communication to External AI Service", "AI SPM"],
     description:
       "Sends a prompt-injection style request through unauthenticated /api/chat → OpenAI.",
-    outcome: "AI inference audit logs in CloudWatch — AI SPM without user identity.",
+    outcome: "AI inference audit logs — AI SPM without user identity.",
   },
   {
     id: "unauth-reindex",
@@ -211,14 +282,14 @@ export function isPocBlocked(
   poc: SecurityPoc,
   findings: {
     active_cves: Array<{ cve: string }>;
-    aws_runtime: boolean;
-    lambda_enabled: boolean;
+    azure_runtime: boolean;
+    function_enabled: boolean;
   }
 ): boolean {
   if (poc.requiresPillow && findings.active_cves.every((c) => !c.cve.includes("50447"))) {
     return true;
   }
-  if (poc.awsOnly && !findings.aws_runtime) return true;
-  if (poc.lambdaOnly && !findings.lambda_enabled) return true;
+  if (poc.azureOnly && !findings.azure_runtime) return true;
+  if (poc.functionOnly && !findings.function_enabled) return true;
   return false;
 }

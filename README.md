@@ -46,7 +46,9 @@ docker compose up --build
 
 Open [http://localhost:3000](http://localhost:3000) · security dashboard at [/security](http://localhost:3000/security)
 
-Vulnerabilities are on by default: pillow CVE, exploit endpoints, path traversal, chat-rag on port 8001. On Azure: public blob export, overprivileged managed identities, open SSH NSG rule, and anonymous Function routes (EICAR + PyYAML CVE).
+Vulnerabilities are on by default: pillow CVE, exploit endpoints, path traversal, chat-rag on port 8001. On Azure: public blob export, overprivileged managed identities, dev SP with User Access Administrator, leaked client secrets, Key Vault workshop secrets, open SSH NSG rule, and anonymous Function routes (EICAR + PyYAML CVE).
+
+**Cloud XDR focus:** identity-first attack paths — managed identity IMDS token theft, role assignment abuse, service principal credential theft, and Key Vault → Storage lateral movement. See [docs/WORKSHOP.md](docs/WORKSHOP.md).
 
 ## Deploy to Azure
 

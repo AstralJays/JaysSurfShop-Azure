@@ -23,8 +23,8 @@ interface PostureData {
   };
   findings: {
     exploit_lab_enabled: boolean;
-    aws_runtime: boolean;
-    lambda_enabled: boolean;
+    azure_runtime: boolean;
+    function_enabled: boolean;
     eicar_present: boolean;
     is_local: boolean;
     cspm_misconfigurations: Array<{
@@ -42,7 +42,7 @@ interface PostureData {
       active: boolean;
       exploitable: boolean;
     }>;
-    iam_misconfigurations: Array<{
+    identity_misconfigurations: Array<{
       role: string;
       finding: string;
       details: string;
@@ -115,7 +115,7 @@ function PocCard({
       </div>
       {blocked && (
         <p className="text-xs text-ocean-400 mt-2">
-          Unavailable in this environment (requires AWS, Lambda, or vulnerable image).
+          Unavailable in this environment (requires Azure runtime, Function App, or vulnerable image).
         </p>
       )}
       {result && (
@@ -177,7 +177,7 @@ export default function SecurityPage() {
 
   const { findings } = posture;
   const activeCspm = findings.cspm_misconfigurations.filter((m) => m.active);
-  const activeIam = findings.iam_misconfigurations.filter((m) => m.active && m.severity !== "Info");
+  const activeIam = findings.identity_misconfigurations.filter((m) => m.active && m.severity !== "Info");
   const activeCategory = pocsByCategory.find((c) => c.id === activeTab)!;
 
   return (
@@ -276,12 +276,12 @@ export default function SecurityPage() {
       </section>
 
       <section className="card p-5 mb-8">
-        <h2 className="font-display text-lg font-bold text-ocean-900 mb-1">IAM Misconfigurations</h2>
+        <h2 className="font-display text-lg font-bold text-ocean-900 mb-1">Identity Misconfigurations</h2>
         <p className="text-xs text-ocean-500 mb-4">
           {activeIam.length} active overprivileged role{activeIam.length !== 1 && "s"}
         </p>
         <div className="space-y-3">
-          {findings.iam_misconfigurations.map((m, i) => (
+          {findings.identity_misconfigurations.map((m, i) => (
             <div
               key={`${m.role}-${i}`}
               className="flex items-start justify-between gap-3 py-2 border-b border-ocean-50 last:border-0"
@@ -335,9 +335,10 @@ export default function SecurityPage() {
         <div className="mb-4 rounded-lg bg-ocean-50 px-4 py-3 text-xs text-ocean-700">
           <span className="font-semibold text-ocean-900">Suggested kill chain: </span>
           {activeTab === "container-runtime" &&
-            "Pillow RCE → Fargate metadata creds → (switch to Cloud XDR) IAM abuse + S3 exfil"}
-          {activeTab === "cloud-xdr" && "Run after container compromise — IAM API abuse then S3 object probe"}
-          {activeTab === "malware" && "EICAR file in container + Lambda EICAR/YAML for scanner vs runtime"}
+            "Pillow RCE → Azure IMDS token theft → (switch to Cloud XDR) managed identity abuse + blob exfil"}
+          {activeTab === "cloud-xdr" &&
+            "Managed identity token → Key Vault secrets → role assignment abuse (UAA) → SP credential theft"}
+          {activeTab === "malware" && "EICAR file in container + Function EICAR/YAML for scanner vs runtime"}
           {activeTab === "ai" && "Unauthenticated chat for AI SPM logs, then reindex for admin abuse"}
         </div>
 
