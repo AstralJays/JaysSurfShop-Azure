@@ -80,7 +80,7 @@ resource "azurerm_storage_blob" "leaked_sp_credentials" {
   storage_container_name = azurerm_storage_container.demo_public.name
   type                   = "Block"
   content_type           = "application/json"
-  content                = local.leaked_sp_credentials
+  source_content         = local.leaked_sp_credentials
 
   depends_on = [azurerm_storage_blob.demo_customer_export]
 }

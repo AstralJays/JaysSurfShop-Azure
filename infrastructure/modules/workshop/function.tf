@@ -23,8 +23,11 @@ resource "azurerm_service_plan" "order_webhook" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   os_type             = "Linux"
-  sku_name            = "Y1"
-  tags                = local.common_tags
+  # EP1 (Elastic Premium) — required for Kudu/SCM so Upwind can upload the runtime tracer.
+  # Linux Consumption (Y1) has no SCM VFS; upwindctl instrument-appservice fails with 404.
+  sku_name     = "EP1"
+  worker_count = 1
+  tags         = local.common_tags
 }
 
 resource "azurerm_user_assigned_identity" "order_webhook" {
@@ -56,6 +59,8 @@ resource "azurerm_linux_function_app" "order_webhook" {
   }
 
   site_config {
+    elastic_instance_minimum    = 1
+    pre_warmed_instance_count   = 1
     application_stack {
       python_version = "3.12"
     }
@@ -64,13 +69,30 @@ resource "azurerm_linux_function_app" "order_webhook" {
     }
   }
 
-  app_settings = {
-    ENVIRONMENT                         = var.environment
-    FUNCTIONS_WORKER_RUNTIME            = "python"
-    AzureWebJobsFeatureFlags            = "EnableWorkerIndexing"
-    WEBSITE_RUN_FROM_PACKAGE            = "https://${azurerm_storage_account.function.name}.blob.core.windows.net/function-packages/order-webhook.zip${data.azurerm_storage_account_sas.function_package.sas}"
-    SCM_DO_BUILD_DURING_DEPLOYMENT      = "false"
-  }
+  app_settings = merge(
+    {
+      ENVIRONMENT                    = var.environment
+      FUNCTIONS_WORKER_RUNTIME       = "python"
+      AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
+      WEBSITE_RUN_FROM_PACKAGE       = "https://${azurerm_storage_account.function.name}.blob.core.windows.net/function-packages/order-webhook.zip${data.azurerm_storage_account_sas.function_package.sas}"
+      SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
+    },
+    var.upwind_function_client_id != "" ? {
+      BASH_ENV                              = "/home/upwind-startup.sh"
+      UPWIND_TRACER_REPORT_TO_BACKEND       = "true"
+      UPWIND_TRACER_AUTH_ENDPOINT           = "https://oauth.upwind.io/oauth/token"
+      UPWIND_TRACER_BACKEND_API_HOST        = "https://agent.upwind.io"
+      UPWIND_TRACER_REGISTRATION_HOST       = "https://agent.upwind.io"
+      UPWIND_TRACER_AUTH_CLIENT_ID          = var.upwind_function_client_id
+      UPWIND_TRACER_AUTH_CLIENT_SECRET      = var.upwind_function_client_secret
+      UPWIND_TRACER_INSTANCE_TYPE           = "AppService"
+      UPWIND_CLOUD_PROVIDER                 = "azure"
+      UPWIND_CLOUD_ACCOUNT_ID               = data.azurerm_client_config.current.subscription_id
+      UPWIND_REGION                         = var.upwind_function_region
+      UPWIND_TRACER_EXTENDED_SYSCALLS       = "true"
+      UPWIND_TRACER_REPORT_API_CATALOG      = "true"
+    } : {}
+  )
 
   tags = merge(local.common_tags, {
     DemoFinding = "eicar-and-cve-package"

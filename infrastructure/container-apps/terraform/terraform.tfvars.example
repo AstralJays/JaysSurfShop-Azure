@@ -4,4 +4,10 @@ environment  = "demo"
 
 # openai_api_key = "sk-..."
 
+# upwind_client_id     = "..."
+# upwind_client_secret = "..."
+
+# upwind_function_client_id     = "..."
+# upwind_function_client_secret = "..."
+
 # github_deploy_repo = "AstralJays/JaysSurfShop-Azure"

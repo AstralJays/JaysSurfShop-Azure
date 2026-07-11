@@ -1,5 +1,17 @@
 locals {
   name_prefix = module.workshop.name_prefix
+  upwind_enabled = var.upwind_client_id != ""
+
+  upwind_env = local.upwind_enabled ? [
+    { name = "UPWIND_TRACER_REPORT_TO_BACKEND", value = "true" },
+    { name = "UPWIND_TRACER_AUTH_ENDPOINT", value = "https://oauth.upwind.io/oauth/token" },
+    { name = "UPWIND_TRACER_BACKEND_API_HOST", value = "https://agent.upwind.io" },
+    { name = "UPWIND_TRACER_REGISTRATION_HOST", value = "https://agent.upwind.io" },
+    { name = "UPWIND_CLOUD_PROVIDER", value = "azure" },
+    { name = "UPWIND_CLOUD_ACCOUNT_ID", value = module.workshop.subscription_id },
+    { name = "UPWIND_TRACER_EXTENDED_SYSCALLS", value = "true" },
+    { name = "UPWIND_REGION", value = var.upwind_region },
+  ] : []
 
   services = {
     frontend = {

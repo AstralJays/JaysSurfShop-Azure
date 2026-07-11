@@ -57,3 +57,42 @@ variable "max_replicas" {
   type    = number
   default = 2
 }
+
+variable "upwind_client_id" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "upwind_client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "upwind_tracer_image" {
+  type    = string
+  default = "public.ecr.aws/upwindsecurity/images/tracer:0.7.17"
+}
+
+variable "upwind_region" {
+  type    = string
+  default = "us"
+}
+
+variable "upwind_function_client_id" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "upwind_function_client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "upwind_function_region" {
+  type    = string
+  default = "us"
+}

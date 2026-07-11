@@ -31,4 +31,6 @@ locals {
 
   acr_login_server = azurerm_container_registry.main.login_server
   unique_suffix    = random_string.suffix.result
+  # Storage account names must be 3-24 lowercase alphanumeric characters.
+  storage_compact  = substr(replace(local.name_prefix, "-", ""), 0, 15)
 }

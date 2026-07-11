@@ -37,4 +37,8 @@ module "workshop" {
   github_scan_repo    = var.github_scan_repo
   openai_api_key      = var.openai_api_key
   allowed_cidr_blocks = var.allowed_cidr_blocks
+
+  upwind_function_client_id     = var.upwind_function_client_id
+  upwind_function_client_secret = var.upwind_function_client_secret
+  upwind_function_region        = var.upwind_function_region
 }

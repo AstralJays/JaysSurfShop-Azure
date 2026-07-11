@@ -96,7 +96,7 @@ resource "azurerm_container_app" "services" {
   revision_mode                = "Single"
 
   identity {
-    type         = "UserAssigned"
+    type         = "SystemAssigned, UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.apps.id]
   }
 
@@ -115,22 +115,62 @@ resource "azurerm_container_app" "services" {
     value = module.workshop.leaked_sp_credentials_json
   }
 
+  dynamic "secret" {
+    for_each = local.upwind_enabled ? [1] : []
+    content {
+      name  = "upwind-client-id"
+      value = var.upwind_client_id
+    }
+  }
+
+  dynamic "secret" {
+    for_each = local.upwind_enabled ? [1] : []
+    content {
+      name  = "upwind-client-secret"
+      value = var.upwind_client_secret
+    }
+  }
+
   template {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
 
+    dynamic "volume" {
+      for_each = local.upwind_enabled ? [1] : []
+      content {
+        name         = "upwind-tracer-shared"
+        storage_type = "EmptyDir"
+      }
+    }
+
+    dynamic "init_container" {
+      for_each = local.upwind_enabled ? [1] : []
+      content {
+        name    = "upwind-tracer-init"
+        image   = var.upwind_tracer_image
+        cpu     = 0.25
+        memory  = "0.5Gi"
+        command = ["/var/lib/upwind/upwind-tracer", "--self-copy-path", "/shared/upwind-tracer"]
+
+        volume_mounts {
+          name = "upwind-tracer-shared"
+          path = "/shared"
+        }
+      }
+    }
+
     container {
       name    = each.key
       image   = "${module.workshop.acr_repository_urls[each.key]}:${var.image_tag}"
-      command = each.value.command
+      command = local.upwind_enabled ? concat(["/shared/upwind-tracer", "--"], each.value.command) : each.value.command
       cpu     = each.value.cpu
       memory  = each.value.memory
 
       dynamic "volume_mounts" {
-        for_each = each.key == "chat-rag" ? [1] : []
+        for_each = local.upwind_enabled ? [1] : []
         content {
-          name = "leaked-sp"
-          path = "/var/run/demo"
+          name = "upwind-tracer-shared"
+          path = "/shared"
         }
       }
 
@@ -146,18 +186,36 @@ resource "azurerm_container_app" "services" {
           value = env.value.value
         }
       }
-    }
 
-    dynamic "volume" {
-      for_each = each.key == "chat-rag" ? [1] : []
-      content {
-        name          = "leaked-sp"
-        storage_type  = "Secret"
-        mount_options = "ReadOnly"
-
-        secrets {
+      dynamic "env" {
+        for_each = each.key == "chat-rag" ? [1] : []
+        content {
+          name        = "LEAKED_SP_JSON"
           secret_name = "leaked-sp-json"
-          path        = "leaked-sp.json"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.upwind_enabled ? [1] : []
+        content {
+          name        = "UPWIND_TRACER_AUTH_CLIENT_ID"
+          secret_name = "upwind-client-id"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.upwind_enabled ? [1] : []
+        content {
+          name        = "UPWIND_TRACER_AUTH_CLIENT_SECRET"
+          secret_name = "upwind-client-secret"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.upwind_env
+        content {
+          name  = env.value.name
+          value = env.value.value
         }
       }
     }

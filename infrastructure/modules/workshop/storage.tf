@@ -1,5 +1,5 @@
 resource "azurerm_storage_account" "board_images" {
-  name                     = "${replace(local.name_prefix, "-", "")}boards${local.unique_suffix}"
+  name                     = "${local.storage_compact}brd${local.unique_suffix}"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
@@ -16,7 +16,7 @@ resource "azurerm_storage_container" "board_images" {
 
 # CSPM workshop finding: intentionally public blob container with synthetic PII export
 resource "azurerm_storage_account" "demo_public" {
-  name                     = "${replace(local.name_prefix, "-", "")}public${local.unique_suffix}"
+  name                     = "${local.storage_compact}pub${local.unique_suffix}"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
@@ -42,7 +42,7 @@ resource "azurerm_storage_blob" "demo_customer_export" {
 }
 
 resource "azurerm_storage_account" "function" {
-  name                     = "${replace(local.name_prefix, "-", "")}func${local.unique_suffix}"
+  name                     = "${local.storage_compact}fn${local.unique_suffix}"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"

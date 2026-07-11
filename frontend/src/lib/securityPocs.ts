@@ -178,9 +178,13 @@ export const SECURITY_POCS: SecurityPoc[] = [
     title: "Shell pipe redirect",
     method: "POST",
     apiPath: "/api/security/demo/runtime/shell-pipe",
-    upwindPolicies: ["Shell Process Redirect", "Operating system utilities processes"],
-    description: "Spawns `sh` with `id | tee` — pipe redirect from an app container.",
-    outcome: "Triggers syscall/process policies distinct from Pillow CVE chain.",
+    upwindPolicies: [
+      "Interactive shell process stream redirected to a pipe",
+      "Shell Process Redirect",
+      "Operating system utilities processes",
+    ],
+    description: "Runs real `id` + `tee` binaries, then `sh -i` with stdio on pipes.",
+    outcome: "Discrete Process events on ACA/ECS tracers plus syscall pattern for sh -i.",
   },
   {
     id: "cryptominer-sim",
@@ -192,7 +196,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
     upwindPolicies: ["Crypto mining threats", "CryptoMiners Services DNS"],
     description:
       "Harmless simulation: process renamed to `xmrig` + DNS lookups for known mining pools.",
-    outcome: "No real mining — signals for cryptominer process and pool DNS policies.",
+    outcome: "cp/chmod/xmrig exec chain + pool DNS lookups — discrete Process events on tracers.",
   },
   {
     id: "package-manager",

@@ -47,3 +47,20 @@ variable "vnet_address_space" {
   type    = string
   default = "10.30.0.0/16"
 }
+
+variable "upwind_function_client_id" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "upwind_function_client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "upwind_function_region" {
+  type    = string
+  default = "us"
+}
