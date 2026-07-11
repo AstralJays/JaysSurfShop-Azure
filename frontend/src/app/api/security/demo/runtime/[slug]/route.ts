@@ -14,7 +14,10 @@ const PROXY_ROUTES: Record<string, string> = {
   "blob-exfil": "/demo/exploit/blob-exfil",
   "shell-pipe": "/demo/exploit/shell-pipe",
   "cryptominer-sim": "/demo/exploit/cryptominer-sim",
+  "curl-pipe-sh": "/demo/exploit/curl-pipe-sh",
+  "renamed-downloader": "/demo/exploit/renamed-downloader",
   "package-manager": "/demo/exploit/package-manager",
+  "sensitive-file-cat": "/demo/exploit/sensitive-file-cat",
   "eicar-file": "/demo/exploit/eicar-file",
 };
 
