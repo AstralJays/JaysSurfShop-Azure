@@ -1,6 +1,7 @@
 resource "null_resource" "order_webhook_package" {
   triggers = {
     handler = filemd5("${path.module}/../../function/order-webhook/handler.py")
+    chain   = filemd5("${path.module}/../../function/order-webhook/workshop_chain.py")
     app     = filemd5("${path.module}/../../function/order-webhook/function_app.py")
     reqs    = filemd5("${path.module}/../../function/order-webhook/requirements.txt")
   }
@@ -76,6 +77,7 @@ resource "azurerm_linux_function_app" "order_webhook" {
       AzureWebJobsFeatureFlags       = "EnableWorkerIndexing"
       WEBSITE_RUN_FROM_PACKAGE       = "https://${azurerm_storage_account.function.name}.blob.core.windows.net/function-packages/order-webhook.zip${data.azurerm_storage_account_sas.function_package.sas}"
       SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
+      AZURE_CLIENT_ID                = azurerm_user_assigned_identity.order_webhook.client_id
     },
     var.upwind_function_client_id != "" ? {
       BASH_ENV                              = "/home/upwind-startup.sh"

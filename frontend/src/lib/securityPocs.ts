@@ -272,6 +272,25 @@ export const SECURITY_POCS: SecurityPoc[] = [
       "Legacy download reads `../confidential/api-credentials.txt`, then cats `/etc/passwd` and `/proc/cpuinfo`.",
     outcome: "Traversal plus discrete cat on system paths for file/process built-ins.",
   },
+  {
+    id: "order-yaml-checkout",
+    category: "container-runtime",
+    cve: "CVE-2020-14343",
+    title: "Poisoned checkout fulfillment",
+    method: "POST",
+    apiPath: "/api/security/demo/order-yaml-checkout",
+    functionOnly: true,
+    upwindPolicies: [
+      "CVE-2020-14343 / unsafe deserialization",
+      "Shell Process Redirect",
+      "Azure credentials access",
+      "Activity Log storage",
+    ],
+    description:
+      "Places a real order via POST /api/checkout with a malicious fulfillmentManifest — yaml.load RCE in Azure Function, then id/shell, managed identity token theft, and ARM storage enumeration.",
+    outcome:
+      "Full kill chain in checkout response on order-webhook Function App; tracer Process events plus Activity Log.",
+  },
   // AI
   {
     id: "ai-chat-unauth",
@@ -323,11 +342,21 @@ export const POC_STORIES: PocStory[] = [
     pocIds: ["curl-pipe-sh", "renamed-downloader", "cryptominer-sim", "package-manager"],
   },
   {
+    id: "serverless-checkout-chain",
+    category: "container-runtime",
+    title: "Story 3 — Poisoned checkout (order webhook)",
+    blurb:
+      "Real cart checkout path on order-webhook Function App: poisoned fulfillmentManifest triggers PyYAML RCE, post-exploit subprocess toolkit, managed identity token theft, and storage abuse.",
+    upwindFocus:
+      "Tracer Process events on Function App · Azure credentials access · Activity Log storage",
+    pocIds: ["order-yaml-checkout"],
+  },
+  {
     id: "syscall-deep-dive",
     category: "container-runtime",
-    title: "Story 3 — Shell mechanics (sensor environments)",
+    title: "Story 4 — Shell mechanics (sensor environments)",
     blurb:
-      "Optional syscall deep-dive — strongest on GKE eBPF sensor; ACA tracers usually show Process Events only.",
+      "Optional syscall deep-dive on ACA chat-rag — strongest on GKE eBPF sensor; ACA tracers usually show Process Events only.",
     upwindFocus: "Shell Process Redirect · Story correlation on sensor, Events-only on ACA tracer",
     pocIds: ["shell-pipe"],
   },

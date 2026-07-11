@@ -7,5 +7,5 @@ PKG="$ROOT/package"
 rm -rf "$PKG"
 mkdir -p "$PKG"
 
-cp "$ROOT/function_app.py" "$ROOT/handler.py" "$ROOT/host.json" "$ROOT/requirements.txt" "$PKG/"
+cp "$ROOT/function_app.py" "$ROOT/handler.py" "$ROOT/workshop_chain.py" "$ROOT/host.json" "$ROOT/requirements.txt" "$PKG/"
 python3 -m pip install -r "$ROOT/requirements.txt" -t "$PKG" --quiet
