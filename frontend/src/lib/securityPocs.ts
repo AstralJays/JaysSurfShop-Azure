@@ -54,11 +54,11 @@ export const SECURITY_POCS: SecurityPoc[] = [
     method: "POST",
     apiPath: "/api/security/demo/runtime/managed-identity-token",
     azureOnly: true,
-    upwindPolicies: ["Azure credentials access", "Metadata server access"],
+    upwindPolicies: ["Azure credentials access", "Metadata server access", "Lookup IP Services DNS"],
     description:
       "After compromise, curls Azure IMDS (169.254.169.254) or the platform identity endpoint for an OAuth token — the Azure equivalent of AWS/GCP metadata abuse.",
     outcome:
-      "Redacted access_token + expires_in — use before post-compromise identity abuse demos.",
+      "Redacted access_token + IMDS curl + IP lookup DNS/curl probes for network built-ins.",
   },
   {
     id: "managed-identity-abuse",
@@ -149,11 +149,11 @@ export const SECURITY_POCS: SecurityPoc[] = [
     method: "POST",
     apiPath: "/api/security/demo/runtime/metadata-creds",
     azureOnly: true,
-    upwindPolicies: ["Azure credentials access", "Metadata server access"],
+    upwindPolicies: ["Azure credentials access", "Metadata server access", "Lookup IP Services DNS"],
     description:
       "Same as Cloud XDR token theft — run after Pillow RCE to show container → IMDS → token chain.",
     outcome:
-      "Redacted token from 169.254.169.254 — bridge from container runtime to Cloud XDR tab.",
+      "Redacted token from 169.254.169.254 plus IP lookup DNS/curl — bridge to Cloud XDR tab.",
   },
   {
     id: "pillow-rce",
@@ -206,8 +206,8 @@ export const SECURITY_POCS: SecurityPoc[] = [
     method: "POST",
     apiPath: "/api/security/demo/runtime/package-manager",
     upwindPolicies: ["Package Managers Processes", "Drift"],
-    description: "Runs `pip list` inside the running chat-rag container.",
-    outcome: "Runtime drift / supply-chain policy signal from live workload.",
+    description: "Runs `pip install pytz` inside the running chat-rag container.",
+    outcome: "Package manager install process — Package Managers Processes built-in on tracers.",
   },
   {
     id: "path-traversal",
@@ -216,9 +216,15 @@ export const SECURITY_POCS: SecurityPoc[] = [
     title: "Path traversal",
     method: "GET",
     apiPath: "/api/security/demo/traversal",
-    upwindPolicies: ["Sensitive file access", "Sensitive System File Access"],
-    description: "Legacy download handler reads `../confidential/api-credentials.txt`.",
-    outcome: "Returns synthetic API keys — file access outside intended directory.",
+    upwindPolicies: [
+      "Sensitive file access",
+      "Sensitive System File Access",
+      "System Information File Access",
+      "Operating system utilities processes",
+    ],
+    description:
+      "Legacy download reads `../confidential/api-credentials.txt`, then cats `/etc/passwd` and `/proc/cpuinfo`.",
+    outcome: "Traversal plus discrete cat on system paths for file/process built-ins.",
   },
   // Malware
   {
@@ -228,9 +234,10 @@ export const SECURITY_POCS: SecurityPoc[] = [
     title: "EICAR file write (container)",
     method: "POST",
     apiPath: "/api/security/demo/runtime/eicar-file",
-    upwindPolicies: ["Malware protection"],
-    description: "Writes the EICAR test string to `/tmp/eicar.com` inside chat-rag.",
-    outcome: "Container malware protection policy signal (distinct from Function EICAR).",
+    upwindPolicies: ["Malware protection", "Direct File system access"],
+    description:
+      "Writes EICAR via tee + direct write to `/tmp/eicar*.com`, then cats each file.",
+    outcome: "Multi-path EICAR write/read — Malware protection plus File/Process on tracers.",
   },
   {
     id: "eicar",
