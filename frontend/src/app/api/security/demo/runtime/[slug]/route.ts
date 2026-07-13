@@ -19,6 +19,7 @@ const PROXY_ROUTES: Record<string, string> = {
   "package-manager": "/demo/exploit/package-manager",
   "sensitive-file-cat": "/demo/exploit/sensitive-file-cat",
   "eicar-file": "/demo/exploit/eicar-file",
+  "langchain-ai": "/demo/exploit/langchain-ai",
 };
 
 export async function POST(
