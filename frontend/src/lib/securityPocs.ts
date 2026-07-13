@@ -4,12 +4,15 @@ export interface PocStory {
   id: string;
   category: PocCategory;
   title: string;
+  /** Short attacker-facing summary — what this chain does. */
   blurb: string;
-  /** Plain-language explanation of what the chain does under the hood. */
+  /** Plain explanation of what runs under the hood (no product jargon). */
   underTheHood: string;
-  upwindFocus: string;
+  /** Optional tip for where to look in the monitoring console. */
+  detectionTip: string;
   pocIds: string[];
   continueIn?: { tab: PocCategory; storyId: string; label: string };
+}
 }
 
 export interface SecurityPoc {
@@ -390,12 +393,13 @@ export const POC_STORIES: PocStory[] = [
   {
     id: "cve-probing-story",
     category: "container",
-    title: "Chain 0 — Threat Story bait (chat-rag)",
+    title: "Chain 0 — CVE probe process cluster",
     blurb:
-      "One click on chat-rag replays the Jul-7 Upwind Threat Story process cluster. Use this when you need a Story, not just alerts.",
+      "On chat-rag, run a tight burst of suspicious processes that look like post-CVE exploitation.",
     underTheHood:
-      "chat-rag runs a fixed subprocess sequence that mimics CVE exploitation probing: write an id-output bait file, pipe shell traffic, spawn a process named like xmrig, then invoke pip. No real exploit payload—just correlated Process signals on one workload so Upwind can cluster a Threat Story.",
-    upwindFocus: "Threat Stories correlation · Drift / crypto / shell detections on one workload",
+      "One API call makes chat-rag spawn real binaries in order: write a CVE-looking id output file, open a shell with piped stdio, start a short-lived process named like xmrig, then run pip. Nothing is remotely exploited — the app intentionally executes that process tree inside the container.",
+    detectionTip:
+      "Correlated process/drift/crypto signals on a single workload — may show as a Threat Story after clustering catches up.",
     pocIds: ["cve-probe-story"],
   },
   {
@@ -403,10 +407,10 @@ export const POC_STORIES: PocStory[] = [
     category: "container",
     title: "Chain 1 — React2Shell to cloud pivot",
     blurb:
-      "Unauthenticated RSC RCE on the frontend container, post-exploit toolkit, then metadata for cloud identity.",
+      "RCE on the public Next.js frontend, run a post-exploit toolkit, then steal a managed-identity token from IMDS.",
     underTheHood:
-      "The frontend App Router endpoint is a controlled React2Shell harness (pinned vulnerable Next/React). It executes the post-RCE toolkit inside the Node process, then the next step requests an Azure IMDS / managed-identity token. Process events land on the ACA frontend; Cloud XDR continues with the stolen identity.",
-    upwindFocus: "Frontend Process events → credentials / metadata access → continue Cloud XDR",
+      "Step 1 hits a controlled React2Shell harness on the frontend (pinned vulnerable Next/React). Inside the Node process it runs id, shell redirect, a renamed binary, sensitive file reads, and a miner-shaped process. Step 2 queries Azure IMDS for a managed-identity token — the cloud pivot used by the next chain.",
+    detectionTip: "Process activity on the frontend app, then IMDS / identity token access.",
     pocIds: ["react2shell", "metadata-creds"],
     continueIn: {
       tab: "cloud-xdr",
@@ -417,12 +421,12 @@ export const POC_STORIES: PocStory[] = [
   {
     id: "container-compromise",
     category: "container",
-    title: "Chain 2 — Pillow CVE to host recon",
+    title: "Chain 2 — Pillow RCE to host recon",
     blurb:
-      "Alternate initial access on chat-rag: Pillow RCE, path traversal, sensitive cat, then metadata.",
+      "Different entry point on chat-rag: Pillow code execution, path traversal, secret file reads, then metadata.",
     underTheHood:
-      "chat-rag deliberately loads vulnerable Pillow and evals ImageMath to get code execution, then reads files off-path and cats sensitive paths before querying IMDS. Same cloud-pivot ending as Chain 1, different entry point and workload (Python vs Node).",
-    upwindFocus: "chat-rag Process events → sensitive file reads → credentials / metadata",
+      "chat-rag loads vulnerable Pillow and evaluates ImageMath to get code execution in the Python process. Next it reads off-path files and cats sensitive paths, then hits IMDS for an identity token. Same ending as Chain 1 (cloud identity), different service and CVE.",
+    detectionTip: "Process + sensitive-file activity on chat-rag, then credential/metadata access.",
     pocIds: ["pillow-rce", "path-traversal", "sensitive-file-cat", "metadata-creds"],
     continueIn: {
       tab: "cloud-xdr",
@@ -435,10 +439,10 @@ export const POC_STORIES: PocStory[] = [
     category: "container",
     title: "Chain 3 — Attacker toolkit & impact",
     blurb:
-      "Supply-chain download shape, renamed binary evasion, crypto miner Detection, package manager drift.",
+      "Assume the box is already owned — fetch via curl|sh, spoof a binary name, run a fake miner, then package-manager drift.",
     underTheHood:
-      "After initial access is assumed, these steps run discrete attacker tooling patterns: curl|sh-style fetch, argv0 spoofing via exec -a, a short-lived xmrig-named process, and package-manager activity. Separates what Upwind Detects (often crypto) from weaker Event-only noise.",
-    upwindFocus: "Crypto mining threats (reliable Detection) + package manager / drift Events",
+      "These steps do not exploit a CVE. Each one runs a concrete post-compromise behavior: pipe a download into a shell, copy a binary and exec it under a fake argv0, run a short xmrig-named sleep process, and invoke a package manager. Useful for walking MITRE execution → defense evasion → impact.",
+    detectionTip: "Crypto-mining shaped detections are usually loudest; package-manager activity often shows as quieter events.",
     pocIds: ["curl-pipe-sh", "renamed-downloader", "cryptominer-sim", "package-manager"],
   },
   {
@@ -446,22 +450,21 @@ export const POC_STORIES: PocStory[] = [
     category: "container",
     title: "Chain 4 — Shell mechanics (optional)",
     blurb:
-      "Optional syscall deep-dive on ACA chat-rag — ACA tracers usually show Process Events only.",
+      "Spawn real id/tee processes and an interactive-shaped shell with redirected pipes.",
     underTheHood:
-      "Spawns real id/tee binaries and an interactive-shaped sh with redirected stdio pipes. Useful to discuss tracer coverage; on ACA this often stays at Process Events rather than rich Threat Stories.",
-    upwindFocus: "Shell Process Redirect · use Chain 3 cryptominer for Detections",
+      "chat-rag shells out to real /usr/bin/id and tee, then starts sh -i with stdin/stdout on pipes. This is about shell and syscall patterns after compromise — not a new vulnerability.",
+    detectionTip: "Look for shell process redirect / OS utility process events on the ACA tracer.",
     pocIds: ["shell-pipe"],
   },
   {
     id: "serverless-checkout-chain",
     category: "serverless",
-    title: "Chain 1 — MITRE kill chain (Function App checkout)",
+    title: "Chain 1 — Poisoned checkout (Function App)",
     blurb:
-      "Public Function checkout → PyYAML → toolkit → MI token → ARM storage → miner + EICAR.",
+      "Public checkout accepts malicious YAML → code execution shape → MI token / storage → fake miner + EICAR.",
     underTheHood:
-      "order-webhook Function accepts crafted YAML in the checkout body. Unsafe load yields RCE-shaped behavior, then managed-identity token use against ARM/storage and a miner/EICAR footprint. Tracer Process/File/API plus Activity Log cover this plane—same MITRE shape as Container Chain 1.",
-    upwindFocus:
-      "Tracer Process + File + API on Function App · Activity Log · same MITRE shape as Container Chain 1",
+      "The Function App unsafely loads YAML from the checkout body (PyYAML), then runs an intentional post-exploit sequence: local toolkit steps, managed-identity token use against ARM/storage, then miner- and malware-file shaped artifacts.",
+    detectionTip: "Process/File/API on the Function App plus Activity Log identity and storage access.",
     pocIds: ["order-yaml-checkout"],
   },
   {
@@ -469,10 +472,10 @@ export const POC_STORIES: PocStory[] = [
     category: "cloud-xdr",
     title: "Chain 1 — Workload identity to data theft",
     blurb:
-      "After container compromise, steal MI token then abuse Key Vault and Blob Storage — Activity Log correlation.",
+      "Steal or use the managed identity, then pull Key Vault secrets and Blob data.",
     underTheHood:
-      "Requests a managed-identity token from IMDS, then uses that identity against Key Vault and Storage. Pure control-plane / data-plane abuse after the container pivot—no more RCE steps.",
-    upwindFocus: "Activity Log Key Vault · Storage · identity graph attack path",
+      "No container RCE here. Request an MI token from IMDS, then use that identity against Key Vault and Storage — classic post-compromise cloud data access.",
+    detectionTip: "Activity Log: Key Vault and Storage access from the workload identity.",
     pocIds: [
       "managed-identity-token",
       "managed-identity-abuse",
@@ -486,20 +489,21 @@ export const POC_STORIES: PocStory[] = [
     category: "cloud-xdr",
     title: "Chain 2 — Long-lived identity abuse",
     blurb:
-      "Alternate kill chain: leaked service principal secret → UAA role assignment → secrets and blob exfiltration.",
+      "Use a leaked service-principal secret, escalate via role assignment, then read secrets and blobs.",
     underTheHood:
-      "Uses a planted/leaked SP secret to authenticate as a dormant identity, escalate via role assignment, then read Key Vault and Blob. Shows long-lived credential risk vs ephemeral MI tokens from Chain 1.",
-    upwindFocus: "Dormant secret usage · privilege escalation · Activity Log identity",
+      "Authenticates with a planted/leaked SP secret (not an ephemeral MI token), assigns a broader role, then reads Key Vault and Blob. Shows dormant long-lived credentials vs Chain 1’s short-lived MI path.",
+    detectionTip: "Activity Log: unusual SP sign-in, role assignment, then secret/blob access.",
     pocIds: ["sp-credential-theft", "role-assignment-abuse", "keyvault-secrets", "blob-exfil"],
   },
   {
     id: "ai-data-plane",
     category: "ai",
     title: "Chain 1 — Unauthenticated AI abuse",
-    blurb: "Prompt abuse through the open chat endpoint, then wipe and rebuild RAG without authentication.",
+    blurb:
+      "Abuse the open chat API, then wipe and rebuild the RAG index with no login.",
     underTheHood:
-      "Hits /api/chat with a prompt-injection-style request (egress to OpenAI) then calls the unauthenticated reindex admin path to wipe/rebuild embeddings. Demonstrates AI SPM + no-user-identity admin on the AI data plane—not a package CVE.",
-    upwindFocus: "Communication to External AI Service · AI SPM · unauthorized admin",
+      "First call hits /api/chat with a prompt-injection style message so the backend calls OpenAI. Second call hits the unauthenticated reindex endpoint, which deletes and rebuilds embeddings. Shows missing auth on AI control/data plane — not a package CVE.",
+    detectionTip: "External AI egress and unauthorized admin-style AI actions.",
     pocIds: ["ai-chat-unauth", "unauth-reindex"],
   },
   {
@@ -507,10 +511,10 @@ export const POC_STORIES: PocStory[] = [
     category: "ai",
     title: "Chain 2 — AI supply-chain CVEs",
     blurb:
-      "Scanner Criticals on langchain-community and chromadb; run the post-compromise toolkit as if unsafe RAG deserialize succeeded.",
+      "Vulnerable LangChain/Chroma packages are installed; then run post-compromise toolkit as if unsafe deserialize succeeded.",
     underTheHood:
-      "chat-rag pins langchain-community (CVE-2024-5998 FAISS pickle) and chromadb (CVE-2026-45831) for SCA. The demo harness then runs the same Process toolkit inside the AI workload—without shipping a live pickle gadget—so you can show package Criticals plus runtime Process signals together.",
-    upwindFocus: "AI SPM package CVEs · Process toolkit on chat-rag · pair with Chain 1 for identity-less AI path",
+      "chat-rag pins langchain-community (CVE-2024-5998) and chromadb (CVE-2026-45831) so scanners flag Criticals. The demo endpoint then runs the process toolkit inside that AI service — it does not ship a live pickle RCE gadget.",
+    detectionTip: "Package Criticals on chat-rag plus process toolkit events from the AI workload.",
     pocIds: ["langchain-ai"],
   },
 ];
