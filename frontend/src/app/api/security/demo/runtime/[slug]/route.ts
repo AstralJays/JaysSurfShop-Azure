@@ -3,6 +3,7 @@ import { proxyChat } from "@/lib/demoLab";
 
 const PROXY_ROUTES: Record<string, string> = {
   pillow: "/demo/exploit/pillow",
+  "cve-probe-story": "/demo/exploit/cve-probe-story",
   "iam-abuse": "/demo/exploit/managed-identity-abuse",
   "managed-identity-token": "/demo/exploit/managed-identity-token",
   "managed-identity-abuse": "/demo/exploit/managed-identity-abuse",
