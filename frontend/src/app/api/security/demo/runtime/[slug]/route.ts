@@ -21,6 +21,13 @@ const PROXY_ROUTES: Record<string, string> = {
   "sensitive-file-cat": "/demo/exploit/sensitive-file-cat",
   "eicar-file": "/demo/exploit/eicar-file",
   "langchain-ai": "/demo/exploit/langchain-ai",
+  "ai-prompt-injection": "/demo/exploit/ai-prompt-injection",
+  "ai-sensitive-disclosure": "/demo/exploit/ai-sensitive-disclosure",
+  "ai-poison": "/demo/exploit/ai-poison",
+  "ai-xss-output": "/demo/exploit/ai-xss-output",
+  "ai-system-prompt-leak": "/demo/exploit/ai-system-prompt-leak",
+  "ai-rag-embedding": "/demo/exploit/ai-rag-embedding",
+  "ai-unbounded": "/demo/exploit/ai-unbounded",
 };
 
 export async function POST(
