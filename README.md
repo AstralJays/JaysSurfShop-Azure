@@ -5,7 +5,8 @@
 </p>
 
 <p align="center">
-  Azure twin of <a href="https://github.com/AstralJays/JaysSurfShop">JaysSurfShop</a> — the same intentionally vulnerable surf shop for security workshops — CSPM, container runtime, AI SPM, and XDR demos. Deploy on <strong>AKS</strong> or <strong>Azure Container Apps</strong>.
+  Azure twin of <a href="https://github.com/AstralJays/JaysSurfShop">JaysSurfShop</a> — same open-source <strong>POC / demo</strong> app.
+  Fork or clone, deploy on <strong>AKS</strong> or <strong>Azure Container Apps</strong>, connect <strong>your</strong> security tooling, and run the built-in attacks from <code>/security</code>.
 </p>
 
 <p align="center">
@@ -44,11 +45,11 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) · security dashboard at [/security](http://localhost:3000/security)
+Open [http://localhost:3000](http://localhost:3000) · exploit lab at [/security](http://localhost:3000/security)
 
-Vulnerabilities are on by default: pillow CVE, exploit endpoints, path traversal, chat-rag on port 8001. On Azure: public blob export, overprivileged managed identities, dev SP with User Access Administrator, leaked client secrets, Key Vault workshop secrets, open SSH NSG rule, and anonymous Function routes (EICAR + PyYAML CVE).
+Vulnerabilities are on by default (Pillow CVE, exploit endpoints, path traversal, chat-rag on 8001). Point your tooling at the stack, then run attacks from the lab. On Azure: public blob export, overprivileged managed identities, leaked client secrets, Key Vault demo secrets, open SSH NSG rule, and anonymous Function routes (EICAR + PyYAML CVE).
 
-**Cloud XDR focus:** identity-first attack paths — managed identity IMDS token theft, role assignment abuse, service principal credential theft, and Key Vault → Storage lateral movement. See [docs/WORKSHOP.md](docs/WORKSHOP.md).
+**Identity attack focus:** managed identity IMDS token theft, role assignment abuse, service principal credential theft, and Key Vault → Storage lateral movement. Optional: [docs/WORKSHOP.md](docs/WORKSHOP.md).
 
 ## Deploy to Azure
 
