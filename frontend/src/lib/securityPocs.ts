@@ -3,11 +3,17 @@ export type PocCategory = "container" | "serverless" | "cloud-xdr" | "ai";
 export interface PocStory {
   id: string;
   category: PocCategory;
+  /** Workshop Story slot (1 or 2) — maps to a distinct Upwind Threat Story flow. */
+  storyIndex: 1 | 2;
+  /** Upwind resource this Story should land on (must differ across Stories). */
+  targetResource: string;
   title: string;
   blurb: string;
   /** Plain-language explanation of what the chain does under the hood. */
   underTheHood: string;
   upwindFocus: string;
+  /** Minutes to wait between Story event steps for scoring. */
+  stepGapSeconds?: number;
   pocIds: string[];
   continueIn?: { tab: PocCategory; storyId: string; label: string };
 }
@@ -34,28 +40,29 @@ export const POC_CATEGORIES: Array<{
 }> = [
   {
     id: "container",
-    label: "Container",
+    label: "Story 1 · chat-rag",
     blurb:
-      "Upwind Threat Stories on the container workload (chat-rag / frontend). Strongest Story correlation on GKE sensor.",
+      "Upwind Threat Story on ACA chat-rag (tracer — Stories harder; crypto Detection reliable). CVE-named processes + crypto + pip — the Jul-7 Story shape.",
   },
   {
     id: "serverless",
-    label: "Serverless",
+    label: "Story 2 · frontend",
     blurb:
-      "Threat Stories on order-webhook Function App — tracer + Activity Log checkout kill chain.",
+      "Second Story on a different resource (frontend). React2Shell toolkit in the Next.js process — must not reuse chat-rag or Upwind merges flows.",
   },
   {
     id: "cloud-xdr",
-    label: "Cloud XDR",
+    label: "Extras · Cloud XDR",
     blurb:
-      "Identity / data-exfil Stories after container compromise (MI / SP → Key Vault / Blob).",
+      "Identity / data-plane PoCs after a Story. Useful for Timeline follow-on, not a third Story on the same host.",
   },
   {
     id: "ai",
-    label: "AI",
-    blurb: "Unauthenticated AI admin actions, prompt abuse, and AI package supply-chain harnesses.",
+    label: "Extras · AI",
+    blurb: "AI SPM demos — package CVEs and unauth AI admin (usually Events / SCA, not Stories).",
   },
 ];
+
 
 export const SECURITY_POCS: SecurityPoc[] = [
   // Cloud XDR — identity-first attack paths
@@ -388,125 +395,64 @@ export const SECURITY_POCS: SecurityPoc[] = [
 
 export const POC_STORIES: PocStory[] = [
   {
-    id: "cve-probing-story",
+    id: "story-1-cve-probing",
     category: "container",
-    title: "Suspicious CVE Exploitation Probing in Container",
+    storyIndex: 1,
+    targetResource: "chat-rag",
+    title: "Story 1 — Suspicious CVE Exploitation Probing",
     blurb:
-      "The Jul-7 Upwind Threat Story on chat-rag. Run these Story events in order — same timeline Upwind correlated.",
+      "Generate Threat Story #1 on chat-rag. Run events in order with ~30s gaps. ACA tracer: expect crypto Detection; Story score harder than GKE.",
     underTheHood:
-      "Event 1: Pillow RCE writes id to /tmp/jss-cve-2023-50447-id.txt. Event 2: id|tee shell pipe. Event 3: exec -a xmrig sleep 3 + mining-pool DNS. Event 4: pip list. That is the Story timeline (Drift detections + crypto). Close the existing Open Story in Upwind if you need a fresh row.",
-    upwindFocus: "Threats → Stories → Suspicious CVE Exploitation Probing · resource chat-rag",
+      "Docs: a Story opens when related high-severity detections cross a score threshold on one flow. These four steps match the Jul-7 Story: Pillow CVE id file → shell pipe/tee → exec -a xmrig (+ pool DNS) → pip list. Toxic combo = vulnerable Pillow package + out-of-baseline process Drift. Close any Open Story of this shape first if Last seen is frozen.",
+    upwindFocus:
+      "Threats → Stories · resource chat-rag · Azure. Expect crypto Detection immediately; Story may lag several minutes.",
+    stepGapSeconds: 30,
     pocIds: ["pillow-rce", "shell-pipe", "cryptominer-sim", "package-manager"],
   },
   {
-    id: "crypto-mining-story",
-    category: "container",
-    title: "Cryptocurrency mining process",
-    blurb:
-      "The Detection you usually see first — miner-named process plus mining-pool DNS.",
-    underTheHood:
-      "Spawns sh -c 'exec -a xmrig sleep 3', optional /tmp/xmrig binary chain, and DNS to pool.supportxmr.com / minergate. Promotes to Detection more reliably than other process signals.",
-    upwindFocus: "Threats → Detections → cryptocurrency mining process",
-    pocIds: ["cryptominer-sim"],
-  },
-  {
-    id: "cred-search-story",
-    category: "container",
-    title: "Private key or password search",
-    blurb:
-      "Sensitive file reads that show up as Process events for key/password searching.",
-    underTheHood:
-      "Cats /etc/passwd, /etc/hosts, /proc info and reads traversed credential files — same class of signal as “searched for a Private key or Password”.",
-    upwindFocus: "Threats → Events → Private key or Password · chat-rag / frontend",
-    pocIds: ["sensitive-file-cat", "path-traversal"],
-  },
-  {
-    id: "download-masquerade-story",
-    category: "container",
-    title: "Suspicious file downloads & process masquerade",
-    blurb:
-      "Supply-chain fetch shape and renamed binary — download / out-of-baseline process events.",
-    underTheHood:
-      "curl|sh against a local harmless script, then cp curl → /tmp/.wget and run it. Matches suspicious download and renamed-tool Drift events.",
-    upwindFocus: "Threats → Events → suspicious file downloads / Out Of Baseline",
-    pocIds: ["curl-pipe-sh", "renamed-downloader"],
-  },
-  {
-    id: "react2shell-pivot",
-    category: "container",
-    title: "Unauthenticated RCE → cloud credential theft",
-    blurb:
-      "React2Shell on the frontend, then steal the runtime identity from metadata.",
-    underTheHood:
-      "Frontend process toolkit after controlled React2Shell harness, then Azure IMDS managed-identity token theft. Continue in Cloud XDR for data access.",
-    upwindFocus: "Events on frontend → metadata/credentials → Cloud XDR Story",
-    pocIds: ["react2shell", "metadata-creds"],
-    continueIn: {
-      tab: "cloud-xdr",
-      storyId: "identity-to-data",
-      label: "Continue → Workload identity / Key Vault Story",
-    },
-  },
-  {
-    id: "serverless-checkout-chain",
+    id: "story-2-frontend-rce",
     category: "serverless",
-    title: "Poisoned serverless checkout (PyYAML kill chain)",
+    storyIndex: 2,
+    targetResource: "frontend",
+    title: "Story 2 — Unauthenticated RCE on frontend",
     blurb:
-      "Public checkout deserializes malicious YAML and runs the post-exploit toolkit on Function App.",
+      "Generate Threat Story #2 on a DIFFERENT resource (frontend), so Upwind cannot fold it into Story 1.",
     underTheHood:
-      "One poisoned /checkout: PyYAML → toolkit → MI/ARM/storage → miner → EICAR.",
-    upwindFocus: "Function App tracer Process/File/API + Activity Log",
-    pocIds: ["order-yaml-checkout"],
+      "React2Shell harness runs the post-RCE toolkit inside the frontend Node process (id, shell, renamed binary, sensitive cat, miner-shaped process). Same cluster, different workload entity — required for a second Story per Docs (“same flow” consolidation).",
+    upwindFocus:
+      "Threats → Stories · resource frontend · Azure. Run after Story 1 has appeared (or after waiting). Do not run chat-rag PoCs in the same window.",
+    stepGapSeconds: 0,
+    pocIds: ["react2shell"],
   },
   {
     id: "identity-to-data",
     category: "cloud-xdr",
-    title: "Workload identity → Key Vault / Blob theft",
+    storyIndex: 2,
+    targetResource: "chat-rag + Azure APIs",
+    title: "Follow-on — MI → Key Vault / Blob",
     blurb:
-      "MI token then Key Vault and Blob access — Activity Log correlated identity Story.",
+      "Optional Timeline follow-on AFTER Story 1. MI token → Key Vault/Blob — may enrich Story 1.",
     underTheHood:
-      "IMDS token → Key Vault / Storage. Post-compromise cloud Story, not container RCE.",
-    upwindFocus: "Activity Log · Key Vault · Storage · identity graph",
+      "IMDS MI token → Key Vault / Storage. Activity Log follow-on; different from Story 2 (frontend).",
+    upwindFocus: "Activity Log · Key Vault · Blob · may attach to Story 1",
+    stepGapSeconds: 45,
     pocIds: [
       "managed-identity-token",
       "managed-identity-abuse",
       "keyvault-secrets",
-      "mi-keyvault-chain",
       "blob-exfil",
     ],
   },
   {
-    id: "persistent-identity",
-    category: "cloud-xdr",
-    title: "Dormant service principal → privilege escalation",
-    blurb:
-      "Leaked SP secret, role assignment, then secrets and blob exfil.",
-    underTheHood:
-      "Long-lived SP credential Story vs ephemeral MI tokens.",
-    upwindFocus: "Dormant secret · role assignment · Activity Log",
-    pocIds: ["sp-credential-theft", "role-assignment-abuse", "keyvault-secrets", "blob-exfil"],
-  },
-  {
     id: "ai-data-plane",
     category: "ai",
-    title: "Unauthenticated AI service abuse",
-    blurb:
-      "Open chat + unauth RAG reindex — external AI egress and admin without identity.",
-    underTheHood:
-      "Prompt-injection style /api/chat then wipe/rebuild embeddings with no login.",
-    upwindFocus: "Communication to External AI Service · AI SPM",
+    storyIndex: 2,
+    targetResource: "chat-rag",
+    title: "Extra — Unauthenticated AI abuse",
+    blurb: "AI SPM / external AI egress demo — seldom becomes a Threat Story alone.",
+    underTheHood: "Unauth /api/chat + reindex.",
+    upwindFocus: "AI SPM · Events",
     pocIds: ["ai-chat-unauth", "unauth-reindex"],
-  },
-  {
-    id: "ai-supply-chain",
-    category: "ai",
-    title: "AI supply-chain CVE → post-compromise toolkit",
-    blurb:
-      "LangChain/Chroma Criticals plus process toolkit on chat-rag as if unsafe deserialize succeeded.",
-    underTheHood:
-      "Pinned CVE packages for SCA; harness runs id/tee/pip/xmrig inside the AI workload (no live pickle gadget).",
-    upwindFocus: "AI SPM package CVEs · Process events on chat-rag",
-    pocIds: ["langchain-ai"],
   },
 ];
 
