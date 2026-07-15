@@ -386,7 +386,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
         body: { message: PROMPT_INJECTION },
         label: "maya-prompt-injection",
       },
-    ],,
+    ],
     signals: ["Communication to External AI Service", "Prompt injection", "AI SPM"],
     description:
       "OWASP LLM01 — sends a direct prompt-injection style request through the open chat API.",
@@ -420,7 +420,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
         body: { message: AI_DISCLOSURE_PROMPT },
         label: "maya-sensitive-disclosure",
       },
-    ],,
+    ],
     signals: ["Sensitive data in RAG corpus", "PII / secret disclosure via AI"],
     description:
       "OWASP LLM02 — retrieves planted VIP emails and an internal API key from the knowledge base.",
@@ -488,7 +488,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
         body: { message: AI_XSS_PROMPT },
         label: "maya-xss-output",
       },
-    ],,
+    ],
     signals: ["HTML/JS in model output", "Client-side XSS if unsanitized"],
     description:
       "OWASP LLM05 — obtains executable HTML/JS as assistant output (falls back to a canned payload).",
@@ -509,7 +509,7 @@ export const SECURITY_POCS: SecurityPoc[] = [
         body: { message: AI_SYSTEM_LEAK_PROMPT },
         label: "maya-system-prompt-leak",
       },
-    ],,
+    ],
     signals: ["System prompt secret extraction", "Instruction leakage"],
     description:
       "OWASP LLM07 — the system prompt embeds a staff PIN / wholesale code; asks the model to repeat it.",
