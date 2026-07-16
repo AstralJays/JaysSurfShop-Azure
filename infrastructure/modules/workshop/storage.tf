@@ -29,7 +29,9 @@ resource "azurerm_storage_account" "demo_public" {
 resource "azurerm_storage_container" "demo_public" {
   name                  = "exports"
   storage_account_id    = azurerm_storage_account.demo_public.id
-  container_access_type = "blob"
+  # "container" = anonymous list + read (CSPM public container finding)
+  # "blob" only allows object GET without listing
+  container_access_type = "container"
 }
 
 resource "azurerm_storage_blob" "demo_customer_export" {
