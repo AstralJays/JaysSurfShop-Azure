@@ -30,3 +30,19 @@ def yaml_demo(req: func.HttpRequest) -> func.HttpResponse:
     body = _parse_body(req.get_body().decode("utf-8") if req.get_body() else "")
     result = dispatch("POST", "/demo/yaml", body)
     return func.HttpResponse(result["body"], status_code=result["statusCode"], mimetype="application/json")
+
+
+@app.route(route="fulfillment/carrier-check", methods=["POST"])
+def fulfillment_carrier_check(req: func.HttpRequest) -> func.HttpResponse:
+    """Azure Function fulfillment — carrier CLI / shell probe."""
+    body = _parse_body(req.get_body().decode("utf-8") if req.get_body() else "")
+    result = dispatch("POST", "/fulfillment/carrier-check", body)
+    return func.HttpResponse(result["body"], status_code=result["statusCode"], mimetype="application/json")
+
+
+@app.route(route="fulfillment/av-sample", methods=["POST"])
+def fulfillment_av_sample(req: func.HttpRequest) -> func.HttpResponse:
+    """Azure Function fulfillment — AV test sample attach (EICAR file write)."""
+    body = _parse_body(req.get_body().decode("utf-8") if req.get_body() else "")
+    result = dispatch("POST", "/fulfillment/av-sample", body)
+    return func.HttpResponse(result["body"], status_code=result["statusCode"], mimetype="application/json")

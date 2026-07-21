@@ -63,6 +63,8 @@ def handle_status() -> dict:
                 "GET /status",
                 "GET /demo/eicar",
                 "POST /demo/yaml",
+                "POST /fulfillment/carrier-check",
+                "POST /fulfillment/av-sample",
             ],
             "api_gateway": {
                 "public": True,
@@ -156,6 +158,110 @@ def handle_yaml(body: dict) -> dict:
     )
 
 
+def handle_carrier_check(body: dict) -> dict:
+    """
+    Fulfillment — carrier CLI probe.
+    Intentionally runs subprocess commands with unsanitised carrier input.
+    Azure Function variant of the GCP Cloud Run sink.
+    """
+    import subprocess
+
+    carrier = str(body.get("carrier") or "fedex").strip()
+    order_id = str(body.get("orderId") or _order_id()).strip()
+
+    steps = []
+
+    # Intentional: carrier value flows into shell command (command injection sink)
+    try:
+        result = subprocess.run(
+            ["sh", "-c", f"echo 'Checking carrier: {carrier}' && id"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        steps.append(
+            {
+                "step": "carrier-probe",
+                "stdout": result.stdout.strip(),
+                "stderr": result.stderr.strip(),
+            }
+        )
+    except Exception as exc:
+        steps.append({"step": "carrier-probe", "error": str(exc)})
+
+    # EICAR written to disk — triggers AV / runtime malware detections
+    eicar_path = f"/tmp/carrier_check_{order_id}.txt"
+    try:
+        with open(eicar_path, "w") as fh:
+            fh.write(EICAR)
+        steps.append({"step": "eicar-write", "path": eicar_path})
+    except Exception as exc:
+        steps.append({"step": "eicar-write", "error": str(exc)})
+
+    return _response(
+        200,
+        {
+            "ok": True,
+            "orderId": order_id,
+            "carrier": carrier,
+            "status": "carrier_verified",
+            "fulfillment_steps": steps,
+            "narrative": (
+                "Azure Function runs carrier CLI check; AV sample written. "
+                "Runtime tools should observe the subprocess and EICAR write."
+            ),
+        },
+    )
+
+
+def handle_av_sample(body: dict) -> dict:
+    """
+    Fulfillment — AV test-sample attachment.
+    Writes EICAR to disk so runtime scanners / sensors fire.
+    Azure Function variant of the GCP Cloud Run sink.
+    """
+    import subprocess
+
+    order_id = str(body.get("orderId") or _order_id()).strip()
+    sample_path = f"/tmp/av_sample_{order_id}.com"
+
+    steps = []
+
+    try:
+        with open(sample_path, "w") as fh:
+            fh.write(EICAR)
+        steps.append({"step": "eicar-write", "path": sample_path, "bytes": len(EICAR)})
+    except Exception as exc:
+        steps.append({"step": "eicar-write", "error": str(exc)})
+
+    # Subprocess probe so process sensors fire alongside file sensors
+    try:
+        result = subprocess.run(
+            ["sh", "-c", f"ls -la {sample_path} && id"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        steps.append({"step": "verify-proc", "stdout": result.stdout.strip()})
+    except Exception as exc:
+        steps.append({"step": "verify-proc", "error": str(exc)})
+
+    return _response(
+        200,
+        {
+            "ok": True,
+            "orderId": order_id,
+            "eicar_written": sample_path,
+            "eicar_length": len(EICAR),
+            "fulfillment_steps": steps,
+            "narrative": (
+                "EICAR test file attached to fulfillment artifact. "
+                "Scanners should flag; runtime tools should observe file write + subprocess."
+            ),
+        },
+    )
+
+
 def dispatch(method: str, path: str, body: dict) -> dict:
     route = f"{method.upper()} {path}"
     routes = {
@@ -163,6 +269,8 @@ def dispatch(method: str, path: str, body: dict) -> dict:
         "POST /checkout": lambda: handle_checkout(body),
         "GET /demo/eicar": handle_eicar,
         "POST /demo/yaml": lambda: handle_yaml(body),
+        "POST /fulfillment/carrier-check": lambda: handle_carrier_check(body),
+        "POST /fulfillment/av-sample": lambda: handle_av_sample(body),
     }
 
     fn = routes.get(route)
