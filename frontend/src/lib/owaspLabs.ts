@@ -196,7 +196,7 @@ export const OWASP_LABS: OwaspLab[] = [
     title: "Carrier runtime check (shell pipe)",
     severity: "High",
     summary:
-      "Fulfillment "carrier CLI check" runs id | tee inside Azure Function — Shell Process Redirect.",
+      'Fulfillment "carrier CLI check" runs id | tee inside Azure Function — Shell Process Redirect.',
     objective: "Force a shell pipe on order-webhook only.",
     steps: [
       "Click Run carrier check once.",
